@@ -68,6 +68,73 @@ export class DatabaseOperations {
       return { success: false, linkCount: 0 };
     }
   }
+
+  async getLinksWithPagination(
+    userId: number,
+    page: number = 1,
+    limit: number = 5
+  ): Promise<{
+    links: (Link & { message_content?: string })[];
+    totalCount: number;
+    currentPage: number;
+    totalPages: number;
+  }> {
+    try {
+      const offset = (page - 1) * limit;
+
+      // Get total count
+      const { count, error: countError } = await db.getClient()
+        .from('z_links')
+        .select('*, z_messages!inner(telegram_user_id)', { count: 'exact' })
+        .eq('z_messages.telegram_user_id', userId);
+
+      if (countError) {
+        console.error('Failed to get links count:', countError);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+      }
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      // Get paginated links with message content
+      const { data, error } = await db.getClient()
+        .from('z_links')
+        .select(`
+          *,
+          z_messages!inner(content, telegram_user_id)
+        `)
+        .eq('z_messages.telegram_user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error('Failed to fetch links:', error);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+      }
+
+      const links = (data || []).map(item => ({
+        id: item.id,
+        message_id: item.message_id,
+        url: item.url,
+        title: item.title,
+        description: item.description,
+        og_image: item.og_image,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        message_content: item.z_messages?.content
+      }));
+
+      return {
+        links,
+        totalCount,
+        currentPage: page,
+        totalPages
+      };
+    } catch (error) {
+      console.error('Database error getting links:', error);
+      return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+    }
+  }
 }
 
 export const dbOps = new DatabaseOperations();

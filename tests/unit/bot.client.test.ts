@@ -15,6 +15,13 @@ jest.mock('../../src/config/environment', () => ({
   }
 }));
 
+// Mock database operations
+jest.mock('../../src/database/operations', () => ({
+  dbOps: {
+    getLinksWithPagination: jest.fn()
+  }
+}));
+
 describe('TelegramClient', () => {
   let mockBotInstance: any;
 
@@ -27,6 +34,7 @@ describe('TelegramClient', () => {
       },
       catch: jest.fn(),
       command: jest.fn(),
+      on: jest.fn(),
       start: jest.fn(),
       stop: jest.fn(),
     };
@@ -124,6 +132,20 @@ describe('TelegramClient', () => {
       new TelegramClient();
 
       expect(mockBotInstance.command).toHaveBeenCalledWith('start', expect.any(Function));
+    });
+  });
+
+  describe('list commands', () => {
+    it('should register list and ls command handlers', () => {
+      new TelegramClient();
+
+      expect(mockBotInstance.command).toHaveBeenCalledWith(['list', 'ls'], expect.any(Function));
+    });
+
+    it('should register callback query handler', () => {
+      new TelegramClient();
+
+      expect(mockBotInstance.on).toHaveBeenCalledWith('callback_query', expect.any(Function));
     });
   });
 

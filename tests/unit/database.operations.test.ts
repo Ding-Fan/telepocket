@@ -16,6 +16,23 @@ describe('Database Operations', () => {
       insert: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       single: jest.fn(),
+      range: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      not: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
+      and: jest.fn().mockReturnThis(),
+      notIn: jest.fn().mockReturnThis(),
+      like: jest.fn().mockReturnThis(),
+      ilike: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      offset: jest.fn().mockReturnThis(),
+      count: jest.fn().mockReturnThis(),
+      then: jest.fn(),
+      catch: jest.fn(),
+      finally: jest.fn(),
     };
 
     mockedDb.getClient.mockReturnValue(mockSupabaseClient);
@@ -202,6 +219,80 @@ describe('Database Operations', () => {
       expect(result.success).toBe(true);
       expect(result.messageId).toBe('msg-uuid-123');
       expect(result.linkCount).toBe(0);
+    });
+  });
+
+  describe('getLinksWithPagination', () => {
+    const mockUserId = 123456789;
+    const mockLinksData = [
+      {
+        id: 'link-1',
+        message_id: 'msg-1',
+        url: 'https://example.com',
+        title: 'Example Site',
+        description: 'Test description',
+        og_image: 'https://example.com/image.jpg',
+        created_at: '2025-06-14T10:00:00Z',
+        updated_at: '2025-06-14T10:00:00Z',
+        z_messages: { content: 'Check this out: https://example.com' }
+      }
+    ];
+
+    it('should get links with pagination successfully', async () => {
+      // Mock count query
+      mockSupabaseClient.select.mockResolvedValueOnce({
+        count: 1,
+        error: null
+      });
+
+      // Mock data query
+      mockSupabaseClient.range.mockResolvedValue({
+        data: mockLinksData,
+        error: null
+      });
+
+      const result = await dbOps.getLinksWithPagination(mockUserId, 1, 5);
+
+      expect(result.totalCount).toBe(1);
+      expect(result.currentPage).toBe(1);
+      expect(result.totalPages).toBe(1);
+      expect(result.links).toHaveLength(1);
+      expect(result.links[0].title).toBe('Example Site');
+      expect(result.links[0].message_content).toBe('Check this out: https://example.com');
+    });
+
+    it('should handle empty results', async () => {
+      // Mock count query
+      mockSupabaseClient.select.mockResolvedValueOnce({
+        count: 0,
+        error: null
+      });
+
+      // Mock data query
+      mockSupabaseClient.range.mockResolvedValue({
+        data: [],
+        error: null
+      });
+
+      const result = await dbOps.getLinksWithPagination(mockUserId, 1, 5);
+
+      expect(result.totalCount).toBe(0);
+      expect(result.totalPages).toBe(0);
+      expect(result.links).toHaveLength(0);
+    });
+
+    it('should handle database errors', async () => {
+      // Mock count query error
+      mockSupabaseClient.select.mockResolvedValueOnce({
+        count: null,
+        error: { message: 'Database error' }
+      });
+
+      const result = await dbOps.getLinksWithPagination(mockUserId, 1, 5);
+
+      expect(result.totalCount).toBe(0);
+      expect(result.totalPages).toBe(0);
+      expect(result.links).toHaveLength(0);
     });
   });
 });
