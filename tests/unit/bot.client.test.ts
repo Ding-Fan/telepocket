@@ -20,12 +20,13 @@ describe('TelegramClient', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockBotInstance = {
       api: {
         sendMessage: jest.fn(),
       },
       catch: jest.fn(),
+      command: jest.fn(),
       start: jest.fn(),
       stop: jest.fn(),
     };
@@ -115,6 +116,14 @@ describe('TelegramClient', () => {
       const bot = client.getBot();
 
       expect(bot).toBe(mockBotInstance);
+    });
+  });
+
+  describe('start command', () => {
+    it('should register start command handler', () => {
+      new TelegramClient();
+
+      expect(mockBotInstance.command).toHaveBeenCalledWith('start', expect.any(Function));
     });
   });
 

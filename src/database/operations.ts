@@ -4,7 +4,7 @@ export class DatabaseOperations {
   async saveMessage(message: Omit<Message, 'id' | 'created_at'>): Promise<string | null> {
     try {
       const { data, error } = await db.getClient()
-        .from('messages')
+        .from('z_messages')
         .insert(message)
         .select('id')
         .single();
@@ -24,7 +24,7 @@ export class DatabaseOperations {
   async saveLinks(links: Omit<Link, 'id' | 'created_at' | 'updated_at'>[]): Promise<boolean> {
     try {
       const { error } = await db.getClient()
-        .from('links')
+        .from('z_links')
         .insert(links);
 
       if (error) {

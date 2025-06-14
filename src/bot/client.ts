@@ -7,6 +7,7 @@ export class TelegramClient {
   constructor() {
     this.bot = new Bot(config.telegram.botToken);
     this.setupErrorHandling();
+    this.setupCommands();
   }
 
   getBot(): Bot {
@@ -16,6 +17,37 @@ export class TelegramClient {
   private setupErrorHandling(): void {
     this.bot.catch((err) => {
       console.error('Grammy bot error:', err);
+    });
+  }
+
+  private setupCommands(): void {
+    this.bot.command('start', async (ctx) => {
+      const userId = ctx.from?.id;
+
+      if (!userId || !this.isAuthorizedUser(userId)) {
+        await ctx.reply('🚫 Unauthorized access. This bot is private.');
+        return;
+      }
+
+      const welcomeMessage = `🎉 Welcome back, my master! 👑
+
+🤖 **Telepocket Bot** is ready to serve you! 
+
+✨ **What I do:**
+📝 I automatically save your messages that contain links
+🔗 I extract and store metadata from those links (title, description, images)
+💾 Everything is safely stored in your Supabase database with z_ prefixed tables
+
+📋 **How to use me:**
+📱 Just send me any message with URLs and I'll handle the rest!
+🏷️ I'll fetch webpage titles, descriptions, and preview images
+📊 All your links are organized and searchable in your database
+
+💡 **Pro tip:** Send me multiple links in one message - I'll process them all! 🚀
+
+Ready to start collecting your digital treasures? 💎✨`;
+
+      await ctx.reply(welcomeMessage);
     });
   }
 

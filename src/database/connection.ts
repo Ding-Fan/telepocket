@@ -33,7 +33,7 @@ class DatabaseConnection {
 
   async testConnection(): Promise<boolean> {
     try {
-      const { error } = await this.client.from('messages').select('count', { count: 'exact' });
+      const { error } = await this.client.from('z_messages').select('count', { count: 'exact' });
       return !error;
     } catch (error) {
       console.error('Database connection test failed:', error);

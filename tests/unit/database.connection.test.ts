@@ -10,7 +10,7 @@ describe('Database Connection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockSupabaseClient = {
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
@@ -31,7 +31,7 @@ describe('Database Connection', () => {
       const result = await db.testConnection();
 
       expect(result).toBe(true);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('messages');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('z_messages');
       expect(mockSupabaseClient.select).toHaveBeenCalledWith('id');
       expect(mockSupabaseClient.limit).toHaveBeenCalledWith(1);
     });

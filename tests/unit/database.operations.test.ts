@@ -10,7 +10,7 @@ describe('Database Operations', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockSupabaseClient = {
       from: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
@@ -38,9 +38,8 @@ describe('Database Operations', () => {
 
       const result = await dbOps.saveMessage(mockMessage);
 
-      expect(result.success).toBe(true);
-      expect(result.messageId).toBe('msg-uuid-123');
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('messages');
+      expect(result).toBe('msg-uuid-123');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('z_messages');
       expect(mockSupabaseClient.insert).toHaveBeenCalledWith(mockMessage);
     });
 
@@ -98,7 +97,7 @@ describe('Database Operations', () => {
 
       expect(result.success).toBe(true);
       expect(result.linkCount).toBe(2);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('links');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('z_links');
       expect(mockSupabaseClient.insert).toHaveBeenCalledWith(mockLinks);
     });
 

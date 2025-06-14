@@ -14,8 +14,6 @@ Built with [Grammy.js](https://grammy.dev/) - the modern Telegram Bot Framework 
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
-- npm or pnpm (package manager)
 - A Telegram account
 - A Supabase account (free tier works)
 
@@ -27,9 +25,7 @@ Built with [Grammy.js](https://grammy.dev/) - the modern Telegram Bot Framework 
 # Clone and navigate to the project
 cd telepocket
 
-# Install dependencies (choose one)
-npm install
-# OR
+# Install dependencies
 pnpm install
 
 # Create environment file
@@ -43,10 +39,12 @@ cp .env.example .env
    - Send `/newbot` command
    - Follow the prompts to name your bot
    - Save the **Bot Token** (looks like `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
+   - put it in your `.env` file as `TELEGRAM_BOT_TOKEN`
 
 2. **Get Your User ID**:
    - Search for `@userinfobot` on Telegram
    - Send `/start` to get your **User ID** (numeric, like `123456789`)
+   - put it in your `.env` file as `TELEGRAM_USER_ID`
 
 ### 3. Supabase Database Setup
 
@@ -59,6 +57,7 @@ cp .env.example .env
 2. **Get Database Credentials**:
    - Go to Project Settings → API
    - Copy the **Project URL** and **anon public key**
+   - Put them in your `.env` file as `SUPABASE_URL` and `SUPABASE_ANON_KEY`
 
 3. **Create Database Tables**:
    - Go to SQL Editor in your Supabase dashboard
@@ -66,7 +65,7 @@ cp .env.example .env
 
 ```sql
 -- Create messages table
-CREATE TABLE messages (
+CREATE TABLE z_messages (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     telegram_user_id BIGINT NOT NULL,
     telegram_message_id BIGINT NOT NULL,
@@ -75,9 +74,9 @@ CREATE TABLE messages (
 );
 
 -- Create links table
-CREATE TABLE links (
+CREATE TABLE z_links (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    message_id UUID REFERENCES messages(id) ON DELETE CASCADE,
+    message_id UUID REFERENCES z_messages(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     title TEXT,
     description TEXT,
@@ -87,24 +86,24 @@ CREATE TABLE links (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_messages_created_at ON messages(created_at);
-CREATE INDEX idx_messages_telegram_user_id ON messages(telegram_user_id);
-CREATE INDEX idx_links_created_at ON links(created_at);
-CREATE INDEX idx_links_url ON links(url);
-CREATE INDEX idx_links_message_id ON links(message_id);
+CREATE INDEX idx_z_messages_created_at ON z_messages(created_at);
+CREATE INDEX idx_z_messages_telegram_user_id ON z_messages(telegram_user_id);
+CREATE INDEX idx_z_links_created_at ON z_links(created_at);
+CREATE INDEX idx_z_links_url ON z_links(url);
+CREATE INDEX idx_z_links_message_id ON z_links(message_id);
 
 -- Enable Row Level Security (optional but recommended)
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE z_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE z_links ENABLE ROW LEVEL SECURITY;
 
 -- Create policies (allows all operations for now, customize as needed)
-CREATE POLICY "Allow all operations on messages" ON messages FOR ALL USING (true);
-CREATE POLICY "Allow all operations on links" ON links FOR ALL USING (true);
+CREATE POLICY "Allow all operations on messages" ON z_messages FOR ALL USING (true);
+CREATE POLICY "Allow all operations on links" ON z_links FOR ALL USING (true);
 ```
 
 ### 4. Environment Configuration
 
-Edit your `.env` file with your credentials:
+Ensure your `.env` file looks like this:
 
 ```env
 # Telegram Bot Configuration
@@ -123,18 +122,11 @@ NODE_ENV=development
 
 **Development mode** (with hot reload):
 ```bash
-# With npm
-npm run dev
-# OR with pnpm
 pnpm dev
 ```
 
 **Production mode** (compiled):
 ```bash
-# With npm
-npm run build
-npm start
-# OR with pnpm
 pnpm build
 pnpm start
 ```
@@ -169,7 +161,7 @@ src/
 
 ## Database Schema
 
-### Messages Table
+### Z_Messages Table
 | Column              | Type      | Description                       |
 | ------------------- | --------- | --------------------------------- |
 | id                  | UUID      | Primary key                       |
@@ -178,11 +170,11 @@ src/
 | content             | TEXT      | Full message content              |
 | created_at          | TIMESTAMP | When the message was saved        |
 
-### Links Table
+### Z_Links Table
 | Column      | Type      | Description                         |
 | ----------- | --------- | ----------------------------------- |
 | id          | UUID      | Primary key                         |
-| message_id  | UUID      | Foreign key to messages table       |
+| message_id  | UUID      | Foreign key to z_messages table     |
 | url         | TEXT      | The extracted URL                   |
 | title       | TEXT      | Page title (if available)           |
 | description | TEXT      | Page description (if available)     |
@@ -197,7 +189,7 @@ src/
 1. **Bot doesn't respond**:
    - Check that your `TELEGRAM_BOT_TOKEN` is correct
    - Verify that your `TELEGRAM_USER_ID` matches your account
-   - Make sure the bot is running (`npm run dev` or `pnpm dev`)
+   - Make sure the bot is running (`pnpm dev`)
 
 2. **Database errors**:
    - Verify your Supabase credentials in `.env`
