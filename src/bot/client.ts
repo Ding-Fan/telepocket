@@ -52,16 +52,18 @@ export class TelegramClient {
 📊 All your links are organized and searchable in your database
 
 📚 **Commands:**
-• \`/list\` or \`/ls\` - View your saved links with pagination
-• \`/list 2\` - Jump to a specific page
+• /list or /ls - View your saved links with pagination
+• /list 2 - Jump to a specific page
 • 📋 Use the "My Saved Links" button below for quick access!
 
 💡 **Pro tip:** Send me multiple links in one message - I'll process them all! 🚀
 
 Ready to start collecting your digital treasures? 💎✨`;
 
-      await ctx.reply(welcomeMessage, {
-        reply_markup: this.createMainKeyboard()
+      const escapedWelcome = this.escapeMarkdownV2(welcomeMessage);
+      await ctx.reply(escapedWelcome, {
+        reply_markup: this.createMainKeyboard(),
+        parse_mode: 'MarkdownV2'
       });
     });
 
@@ -136,6 +138,12 @@ Ready to start collecting your digital treasures? 💎✨`;
     return userId === config.telegram.userId;
   }
 
+  private escapeMarkdownV2(text: string): string {
+    // For MarkdownV2, we need to escape: \ _ * [ ] ( ) ~ ` > # + - = | { } . !
+    // Note: backslash must be escaped first to avoid double-escaping
+    return text.replace(/[\\\_\*\[\]\(\)\~\`\>\#\+\-\=\|\{\}\.\!]/g, '\\$&');
+  }
+
   async start(): Promise<void> {
     console.log('Starting Telepocket bot...');
     await this.bot.start();
@@ -169,25 +177,29 @@ Ready to start collecting your digital treasures? 💎✨`;
 
       const result = await dbOps.getLinksWithPagination(userId, page, 5);
 
-      let message = `🔗 **Your Saved Links** (Page ${result.currentPage}/${result.totalPages})\n`;
-      message += `📊 Total: ${result.totalCount} links\n\n`;
+      let headerText = `🔗 *Your Saved Links* (Page ${result.currentPage}/${result.totalPages})\n`;
+      headerText += `📊 Total: ${result.totalCount} links\n\n`;
+      let message = this.escapeMarkdownV2(headerText);
 
       result.links.forEach((link, index) => {
         const linkNumber = (result.currentPage - 1) * 5 + index + 1;
-        message += `**${linkNumber}.** ${link.title || 'Untitled'}\n`;
-        message += `🌐 ${link.url}\n`;
+        const title = this.escapeMarkdownV2(link.title || 'Untitled');
+
+        message += `*${linkNumber}\\.* ${title}\n`;
+        message += `🌐 ${this.escapeMarkdownV2(link.url)}\n`;
 
         if (link.description) {
           // Truncate description if too long
-          const desc = link.description.length > 100
+          const truncatedDesc = link.description.length > 100
             ? link.description.substring(0, 100) + '...'
             : link.description;
+          const desc = this.escapeMarkdownV2(truncatedDesc);
           message += `📝 ${desc}\n`;
         }
 
         if (link.created_at) {
           const date = new Date(link.created_at).toLocaleDateString();
-          message += `📅 Saved: ${date}\n`;
+          message += `📅 Saved: ${this.escapeMarkdownV2(date)}\n`;
         }
 
         message += '\n';
@@ -230,7 +242,7 @@ Ready to start collecting your digital treasures? 💎✨`;
         // Edit existing message for pagination
         await ctx.editMessageText(message, {
           reply_markup: replyMarkup,
-          parse_mode: 'Markdown'
+          parse_mode: 'MarkdownV2'
         });
       } else {
         // Send new message for command
@@ -238,13 +250,13 @@ Ready to start collecting your digital treasures? 💎✨`;
           // If there are pagination buttons, use inline keyboard
           await ctx.reply(message, {
             reply_markup: replyMarkup,
-            parse_mode: 'Markdown'
+            parse_mode: 'MarkdownV2'
           });
         } else {
           // If no pagination, use persistent keyboard
           await ctx.reply(message, {
             reply_markup: this.createMainKeyboard(),
-            parse_mode: 'Markdown'
+            parse_mode: 'MarkdownV2'
           });
         }
       }

@@ -460,4 +460,35 @@ describe('TelegramClient', () => {
       );
     });
   });
+
+  describe('escapeMarkdownV2', () => {
+    it('should escape all MarkdownV2 special characters', () => {
+      const client = new TelegramClient();
+
+      // Test string with all special characters that need escaping
+      const testString = 'Test_with*special[chars](url)~code`>header#+bold-=pipe|{curly}.period!backslash\\';
+
+      // Access the private method for testing
+      const escaped = (client as any).escapeMarkdownV2(testString);
+
+      // Verify all special characters are escaped
+      expect(escaped).toBe('Test\\_with\\*special\\[chars\\]\\(url\\)\\~code\\`\\>header\\#\\+bold\\-\\=pipe\\|\\{curly\\}\\.period\\!backslash\\\\');
+    });
+
+    it('should handle parentheses in pagination text', () => {
+      const client = new TelegramClient();
+
+      const paginationText = '🔗 *Your Saved Links* (Page 1/18)';
+      const escaped = (client as any).escapeMarkdownV2(paginationText);
+
+      expect(escaped).toBe('🔗 \\*Your Saved Links\\* \\(Page 1/18\\)');
+    }); it('should handle URLs with special characters', () => {
+      const client = new TelegramClient();
+
+      const url = 'https://example.com/path?param=value&other=test#anchor';
+      const escaped = (client as any).escapeMarkdownV2(url);
+
+      expect(escaped).toBe('https://example\\.com/path?param\\=value&other\\=test\\#anchor');
+    });
+  });
 });
