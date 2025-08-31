@@ -3,6 +3,7 @@ import { telegramClient } from './client';
 import { linkExtractor } from '../services/linkExtractor';
 import { metadataFetcher } from '../services/metadataFetcher';
 import { dbOps } from '../database/operations';
+import { escapeMarkdownV2, formatLinksForDisplay } from '../utils/linkFormatter';
 
 export class MessageHandler {
   private bot: Bot;
@@ -74,10 +75,26 @@ export class MessageHandler {
 
       // Update the processing message with the result
       if (result.success) {
+        let successMessage = `✅ *Saved ${result.linkCount} link${result.linkCount === 1 ? '' : 's'}:*\n\n`;
+        
+        // Format saved links using the utility function
+        const formattedLinks = formatLinksForDisplay(urlsWithMetadata.map(item => ({
+          url: item.url,
+          title: item.metadata.title,
+          description: item.metadata.description
+        })), {
+          startNumber: 1,
+          maxDescriptionLength: 80,
+          showNumbers: true
+        });
+        
+        successMessage += formattedLinks;
+        
         await ctx.api.editMessageText(
           ctx.chat!.id,
           processingMsg.message_id,
-          `Success: Saved ${result.linkCount} link(s)`
+          successMessage,
+          { parse_mode: 'MarkdownV2' }
         );
       } else {
         await ctx.api.editMessageText(

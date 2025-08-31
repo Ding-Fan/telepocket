@@ -1,6 +1,7 @@
 import { Bot, Keyboard } from 'grammy';
 import { config } from '../config/environment';
 import { dbOps } from '../database/operations';
+import { escapeMarkdownV2, formatLinksForDisplay } from '../utils/linkFormatter';
 
 export class TelegramClient {
   private bot: Bot;
@@ -60,7 +61,7 @@ export class TelegramClient {
 
 Ready to start collecting your digital treasures? 💎✨`;
 
-      const escapedWelcome = this.escapeMarkdownV2(welcomeMessage);
+      const escapedWelcome = escapeMarkdownV2(welcomeMessage);
       await ctx.reply(escapedWelcome, {
         reply_markup: this.createMainKeyboard(),
         parse_mode: 'MarkdownV2'
@@ -138,11 +139,6 @@ Ready to start collecting your digital treasures? 💎✨`;
     return userId === config.telegram.userId;
   }
 
-  private escapeMarkdownV2(text: string): string {
-    // For MarkdownV2, we need to escape: \ _ * [ ] ( ) ~ ` > # + - = | { } . !
-    // Note: backslash must be escaped first to avoid double-escaping
-    return text.replace(/[\\\_\*\[\]\(\)\~\`\>\#\+\-\=\|\{\}\.\!]/g, '\\$&');
-  }
 
   async start(): Promise<void> {
     console.log('Starting Telepocket bot...');
@@ -166,7 +162,7 @@ Ready to start collecting your digital treasures? 💎✨`;
         return;
       }
 
-      const totalPages = Math.ceil(quickResult.totalCount / 5);
+      const totalPages = Math.ceil(quickResult.totalCount / 10);
 
       // Validate page bounds
       if (page < 1) {
@@ -175,35 +171,20 @@ Ready to start collecting your digital treasures? 💎✨`;
         page = totalPages;
       }
 
-      const result = await dbOps.getLinksWithPagination(userId, page, 5);
+      const result = await dbOps.getLinksWithPagination(userId, page, 10);
 
       let headerText = `🔗 *Your Saved Links* (Page ${result.currentPage}/${result.totalPages})\n`;
       headerText += `📊 Total: ${result.totalCount} links\n\n`;
-      let message = this.escapeMarkdownV2(headerText);
+      let message = escapeMarkdownV2(headerText);
 
-      result.links.forEach((link, index) => {
-        const linkNumber = (result.currentPage - 1) * 5 + index + 1;
-        const title = this.escapeMarkdownV2(link.title || 'Untitled');
-
-        message += `*${linkNumber}\\.* ${title}\n`;
-        message += `🌐 ${this.escapeMarkdownV2(link.url)}\n`;
-
-        if (link.description) {
-          // Truncate description if too long
-          const truncatedDesc = link.description.length > 100
-            ? link.description.substring(0, 100) + '...'
-            : link.description;
-          const desc = this.escapeMarkdownV2(truncatedDesc);
-          message += `📝 ${desc}\n`;
-        }
-
-        if (link.created_at) {
-          const date = new Date(link.created_at).toLocaleDateString();
-          message += `📅 Saved: ${this.escapeMarkdownV2(date)}\n`;
-        }
-
-        message += '\n';
+      // Format the links using the utility function
+      const startNumber = (result.currentPage - 1) * 10 + 1;
+      const formattedLinks = formatLinksForDisplay(result.links, {
+        startNumber,
+        maxDescriptionLength: 100,
+        showNumbers: true
       });
+      message += formattedLinks;
 
       // Create pagination buttons with proper boundary checks
       const keyboard = [];
