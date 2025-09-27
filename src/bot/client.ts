@@ -54,7 +54,7 @@ export class TelegramClient {
 
 📚 **Commands:**
 • /list or /ls - View your saved links with pagination
-• /list 2 - Jump to a specific page
+• /ls keyword - Search links by keyword
 • 📋 Use the "My Saved Links" button below for quick access!
 
 💡 **Pro tip:** Send me multiple links in one message - I'll process them all! 🚀
@@ -77,12 +77,17 @@ Ready to start collecting your digital treasures? 💎✨`;
         return;
       }
 
-      // Parse page number from command arguments
+      // Parse arguments from command
       const args = ctx.message?.text?.split(' ') || [];
-      const pageArg = args[1];
-      const page = pageArg && !isNaN(parseInt(pageArg)) ? parseInt(pageArg) : 1;
+      const keyword = args.slice(1).join(' ');
 
-      await this.showLinksPage(ctx, userId, page);
+      if (!keyword) {
+        // No arguments, show first page
+        await this.showLinksPage(ctx, userId, 1);
+      } else {
+        // Arguments provided, treat as search keyword(s)
+        await this.showSearchResults(ctx, userId, keyword, 1);
+      }
     });
 
     // Handle callback queries for pagination
@@ -106,7 +111,20 @@ Ready to start collecting your digital treasures? 💎✨`;
 
         await this.showLinksPage(ctx, userId, requestedPage);
         await ctx.answerCallbackQuery();
-      } else if (data === 'page_info') {
+      } else if (data?.startsWith('search_page_')) {
+        const parts = data.replace('search_page_', '').split('_');
+        const requestedPage = parseInt(parts[0]);
+        const keyword = decodeURIComponent(parts.slice(1).join('_'));
+
+        // Validate page number
+        if (isNaN(requestedPage) || requestedPage < 1) {
+          await ctx.answerCallbackQuery('❌ Invalid page number.');
+          return;
+        }
+
+        await this.showSearchResults(ctx, userId, keyword, requestedPage);
+        await ctx.answerCallbackQuery();
+      } else if (data === 'page_info' || data === 'search_info') {
         // Handle page indicator click (non-functional, just acknowledge)
         await ctx.answerCallbackQuery('📄 Current page indicator');
       }
@@ -244,6 +262,101 @@ Ready to start collecting your digital treasures? 💎✨`;
     } catch (error) {
       console.error('Error showing links page:', error);
       await ctx.reply('❌ Sorry, there was an error retrieving your links. Please try again later.', {
+        reply_markup: this.createMainKeyboard()
+      });
+    }
+  }
+
+  private async showSearchResults(ctx: any, userId: number, keyword: string, page: number): Promise<void> {
+    try {
+      const result = await dbOps.searchLinksWithPagination(userId, keyword, page, 10);
+
+      if (result.totalCount === 0) {
+        await ctx.reply(`🔍 No links found matching "${keyword}".\n\nTry a different search term or use /ls to see all your links.`, {
+          reply_markup: this.createMainKeyboard()
+        });
+        return;
+      }
+
+      // Validate page bounds
+      if (page < 1) {
+        page = 1;
+      } else if (page > result.totalPages) {
+        page = result.totalPages;
+      }
+
+      let headerText = `🔍 *Search Results for "${keyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      headerText += `📊 Found: ${result.totalCount} links\n\n`;
+      let message = escapeMarkdownV2(headerText);
+
+      // Format the links using the utility function
+      const startNumber = (result.currentPage - 1) * 10 + 1;
+      const formattedLinks = formatLinksForDisplay(result.links, {
+        startNumber,
+        maxDescriptionLength: 100,
+        showNumbers: true
+      });
+      message += formattedLinks;
+
+      // Create pagination buttons with proper boundary checks
+      const keyboard = [];
+      const buttons = [];
+      const encodedKeyword = encodeURIComponent(keyword);
+
+      // Only show Previous button if not on first page
+      if (result.currentPage > 1) {
+        buttons.push({
+          text: '⬅️ Previous',
+          callback_data: `search_page_${result.currentPage - 1}_${encodedKeyword}`
+        });
+      }
+
+      // Always show current page indicator (non-clickable)
+      buttons.push({
+        text: `🔍 ${result.currentPage}/${result.totalPages}`,
+        callback_data: `search_info`
+      });
+
+      // Only show Next button if not on last page
+      if (result.currentPage < result.totalPages) {
+        buttons.push({
+          text: 'Next ➡️',
+          callback_data: `search_page_${result.currentPage + 1}_${encodedKeyword}`
+        });
+      }
+
+      // Only create keyboard if we have navigation buttons (more than just the page indicator)
+      if (buttons.length > 1) {
+        keyboard.push(buttons);
+      }
+
+      const replyMarkup = keyboard.length > 0 ? { inline_keyboard: keyboard } : undefined;
+
+      if (ctx.callbackQuery) {
+        // Edit existing message for pagination
+        await ctx.editMessageText(message, {
+          reply_markup: replyMarkup,
+          parse_mode: 'MarkdownV2'
+        });
+      } else {
+        // Send new message for command
+        if (replyMarkup) {
+          // If there are pagination buttons, use inline keyboard
+          await ctx.reply(message, {
+            reply_markup: replyMarkup,
+            parse_mode: 'MarkdownV2'
+          });
+        } else {
+          // If no pagination, use persistent keyboard
+          await ctx.reply(message, {
+            reply_markup: this.createMainKeyboard(),
+            parse_mode: 'MarkdownV2'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error showing search results:', error);
+      await ctx.reply('❌ Sorry, there was an error searching your links. Please try again later.', {
         reply_markup: this.createMainKeyboard()
       });
     }
