@@ -135,6 +135,79 @@ export class DatabaseOperations {
       return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
     }
   }
+
+  async searchLinksWithPagination(
+    userId: number,
+    keyword: string,
+    page: number = 1,
+    limit: number = 5
+  ): Promise<{
+    links: (Link & { message_content?: string })[];
+    totalCount: number;
+    currentPage: number;
+    totalPages: number;
+    keyword: string;
+  }> {
+    try {
+      const offset = (page - 1) * limit;
+      const searchTerm = `%${keyword}%`;
+
+      // Get total count for search results - try without foreign table in OR
+      const { count, error: countError } = await db.getClient()
+        .from('z_links')
+        .select('*, z_messages!inner(telegram_user_id, content)', { count: 'exact' })
+        .eq('z_messages.telegram_user_id', userId)
+        .or(`url.ilike.*${keyword}*,title.ilike.*${keyword}*,description.ilike.*${keyword}*`);
+
+      if (countError) {
+        console.error('Failed to get search count:', countError);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+      }
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      // Get paginated search results with message content
+      const { data, error } = await db.getClient()
+        .from('z_links')
+        .select(`
+          *,
+          z_messages!inner(content, telegram_user_id)
+        `)
+        .eq('z_messages.telegram_user_id', userId)
+        .or(`url.ilike.*${keyword}*,title.ilike.*${keyword}*,description.ilike.*${keyword}*`)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error('Failed to search links:', error);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+      }
+
+      const links = (data || []).map(item => ({
+        id: item.id,
+        message_id: item.message_id,
+        url: item.url,
+        title: item.title,
+        description: item.description,
+        og_image: item.og_image,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        message_content: item.z_messages?.content
+      }));
+
+      return {
+        links,
+        totalCount,
+        currentPage: page,
+        totalPages,
+        keyword
+      };
+    } catch (error) {
+      console.error('Database error searching links:', error);
+      return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+    }
+  }
 }
 
 export const dbOps = new DatabaseOperations();
