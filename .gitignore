@@ -6,4 +6,5 @@ dist/
 .vscode/
 .idea/
 
+.claude/
 .mcp.*
