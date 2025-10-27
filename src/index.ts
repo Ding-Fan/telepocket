@@ -1,7 +1,7 @@
 import { config } from './config/environment';
 import { db } from './database/connection';
 import { telegramClient } from './bot/client';
-import { messageHandler } from './bot/handlers';
+import { initNoteMessageHandler } from './bot/noteHandlers';
 
 async function main() {
   console.log('🚀 Starting Telepocket Bot...');
@@ -15,9 +15,9 @@ async function main() {
     }
     console.log('✅ Database connection successful');
 
-    // Initialize message handler
+    // Initialize message handler (note system)
     console.log('🤖 Initializing Telegram bot...');
-    messageHandler; // Initialize handlers
+    initNoteMessageHandler(); // Initialize note handlers
     console.log(`👤 Authorized user ID: ${config.telegram.userId}`);
     
     // Start the bot

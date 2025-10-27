@@ -20,6 +20,25 @@ export interface Link {
   updated_at?: string;
 }
 
+export interface Note {
+  id?: string;
+  telegram_user_id: number;
+  telegram_message_id: number;
+  content: string;
+  created_at?: string;
+}
+
+export interface NoteLink {
+  id?: string;
+  note_id: string;
+  url: string;
+  title?: string;
+  description?: string;
+  og_image?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 class DatabaseConnection {
   private client: SupabaseClient;
 
