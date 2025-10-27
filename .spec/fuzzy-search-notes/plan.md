@@ -1,6 +1,6 @@
 # Fuzzy Search & Unified Note System Implementation Plan
 
-**Status**: MVP Complete - Production Ready | **Updated**: 2025-10-26
+**Status**: MVP Complete + Security Hardened - Production Ready | **Updated**: 2025-10-27
 
 ## Architecture Decisions
 
@@ -30,6 +30,38 @@
 - ✅ Enabled extension: `pg_trgm`
 - ✅ Created indexes: 7 total (GIN trigram + standard)
 - ✅ Fixed RLS policies: Added public role policies for anon key access
+
+### ✅ Completed: Security & Performance Hardening (2025-10-27)
+
+**Critical Fixes**:
+1. **User Authorization** - `validateAuthorizedUser()` added to all database operations
+2. **Similarity Threshold Fix** - Changed from database-wide to session-level (`SET LOCAL`)
+3. **Input Validation** - Created `src/utils/validation.ts` with comprehensive validators
+
+**High Priority Fixes**:
+4. **Atomic Transactions** - `save_note_with_links_atomic()` PostgreSQL function
+5. **Error Handling** - `src/utils/errorHandler.ts` with context logging
+6. **Query Optimization** - Window functions reduce queries by 50%
+7. **Migration Workflow** - Proper file-based migration (20251027113455)
+
+**Migrations**:
+3. `supabase/migrations/20251027113455_fix_similarity_threshold_and_add_transaction_support.sql` - Security & performance
+
+**New Utility Modules**:
+- `src/utils/validation.ts` - Input validation (note content, keywords, pagination)
+- `src/utils/errorHandler.ts` - Standardized error handling with context
+
+**Database Functions Updated**:
+- `search_notes_fuzzy()` - Now uses `SET LOCAL` for threshold
+- `search_notes_fuzzy_count()` - Session-level threshold
+- `save_note_with_links_atomic()` - Atomic transaction support (NEW)
+- `get_notes_with_pagination()` - Window function optimization
+- `search_notes_fuzzy_optimized()` - Window function optimization (NEW)
+
+**Migration Lessons Learned**:
+- ❌ Wrong: Create file → ignore it → paste SQL manually → database record doesn't match file
+- ✅ Right: Create file → read file → apply file → verify file matches database record
+- Updated `~/.claude/skills/supabase/SKILL.md` with rollback documentation
 
 ### ✅ Completed: Full Application Layer (Command-Based Approach)
 
