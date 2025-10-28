@@ -16,6 +16,125 @@
 - Both systems run independently, zero risk to existing functionality
 - No data migration needed, users can choose which system to use
 
+## Dual-Write Performance Optimization
+
+**Problem**: Old system is slow (2-10s wait) due to synchronous metadata fetching from external websites.
+
+**Solution**: Optimized dual-write with metadata caching and async background fetch.
+
+### Architecture
+
+**Optimized Flow**:
+```
+User sends link
+  ↓
+Extract URLs (instant)
+  ↓
+Check metadata cache in z_note_links (50ms)
+  ↓
+Merge URLs with cached metadata
+  ↓
+Save to BOTH systems in parallel (150ms)
+  - OLD: z_messages + z_links (2 queries)
+  - NEW: z_notes + z_note_links (1 atomic RPC)
+  ↓
+Reply "✅ Saved!" to user (< 300ms total)
+  ↓
+Background: Fetch metadata for uncached URLs (2-10s)
+  ↓
+Background: Update both systems with metadata
+```
+
+### Key Optimizations
+
+1. **Metadata Caching**: Check `z_note_links` for existing URL metadata before fetching
+   - Cache hit: Instant metadata retrieval (50ms)
+   - Cache miss: Save URL immediately, fetch metadata in background
+   - No TTL in MVP (cache forever)
+
+2. **Parallel Dual-Write**: Write to both systems simultaneously
+   - Old system: Sequential inserts (backward compatible)
+   - New system: Atomic RPC transaction (safe)
+   - Total: ~150ms for both writes
+
+3. **Async Background Fetch**: Non-blocking metadata enrichment
+   - Fire-and-forget pattern (no job queue)
+   - Silent failure acceptable (metadata is optional)
+   - Updates both systems when complete
+
+4. **User Experience**: 90%+ faster perceived performance
+   - Before: 2-10 seconds wait
+   - After: < 300ms for confirmation
+   - Metadata appears on next `/list` or `/notes` view
+
+### Database Operations
+
+```typescript
+// Cache lookup (1 query)
+SELECT url, title, description, og_image, updated_at
+FROM z_note_links
+WHERE url IN (url1, url2, url3);
+
+// Dual-write (3 queries total, parallel)
+// Old system (2 queries):
+INSERT INTO z_messages (...) RETURNING id;
+INSERT INTO z_links (message_id, ...) VALUES (...);
+
+// New system (1 RPC):
+SELECT save_note_with_links_atomic(...);
+
+// Background update (2 queries, after metadata fetch)
+UPDATE z_links SET title=?, description=?, og_image=? WHERE message_id=? AND url=?;
+UPDATE z_note_links SET title=?, description=?, og_image=? WHERE note_id=? AND url=?;
+```
+
+### Migration Strategy
+
+This dual-write enables safe migration path:
+
+**Phase 1** (Current): Dual-write both systems, old system primary
+- Regular messages write to both z_messages and z_notes
+- Users see old system in `/ls` commands
+- New system populated for future migration
+
+**Phase 2** (After validation): Switch reads to new system
+- `/ls` reads from z_notes instead of z_messages
+- Keep dual-write for safety
+- Monitor for discrepancies
+
+**Phase 3** (After confidence): Remove old system writes
+- Stop writing to z_messages/z_links
+- New system becomes primary
+- Old system read-only for historical data
+
+**Phase 4** (Cleanup): Deprecate old tables
+- Optional: Backfill any missing data
+- Drop z_messages/z_links tables
+- Single unified system
+
+### Error Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| Cache lookup fails | Proceed without cache, fetch all metadata |
+| Old system save fails | Log error, continue with new system |
+| New system save fails | Log error, continue with old system |
+| Background fetch fails | Silent failure, metadata remains null |
+| Background update fails | Log error, can retry manually later |
+
+### Performance Impact
+
+**Metrics**:
+- User wait time: **2-10s → 0.3s** (90%+ improvement)
+- Database queries: 2 → 4 (cache + 2 old + 1 new)
+- Query time: Parallel execution keeps total < 200ms
+- Cache hit rate: Expected 30-50% for common URLs
+
+**Trade-offs**:
+- More database queries (but parallel, minimal impact)
+- Background jobs (fire-and-forget, no retry)
+- Complexity in handlers.ts (well-contained)
+
 ## Component API
 
 ```typescript
@@ -114,8 +233,16 @@ User continues sending regular messages with links (saved to old system). Separa
 - Note handler accepts notes without links
 - Message-first display format (note content + bulleted links)
 - Old system unchanged (regular messages still work)
+- **Dual-Write Performance Optimization**:
+  - Metadata caching from z_note_links
+  - Parallel writes to both old and new systems
+  - Async background metadata fetch
+  - 90%+ performance improvement (2-10s → 0.3s)
+  - Update methods for background metadata enrichment
 
 **NOT Included** (Future):
+- Cache TTL and invalidation → 🔧 Robust
+- Job queue for metadata retries → 🔧 Robust
 - Per-link annotations/notes → 🔧 Robust
 - Search history or saved searches → 🔧 Robust
 - AI semantic search (pgvector) → 🚀 Advanced
@@ -264,6 +391,18 @@ handleCommandError(error, context)        // General error handling
 - [x] `save_note_with_links_atomic()` provides transaction support
 - [x] Error handling with context logging
 - [x] Migration file matches database record
+
+**Dual-Write Optimization**:
+- [ ] Cache lookup queries z_note_links for existing URL metadata
+- [ ] Cache hits return metadata in < 100ms
+- [ ] Parallel dual-write to both old and new systems
+- [ ] User receives confirmation in < 500ms (cache hit) or < 1s (cache miss)
+- [ ] Background metadata fetch runs without blocking
+- [ ] Background updates both z_links and z_note_links
+- [ ] Error in one system doesn't block the other
+- [ ] Metadata appears on next `/ls` or `/notes` command
+- [ ] Performance improvement: 90%+ faster for cached URLs
+- [ ] Update methods handle null metadata gracefully
 
 ## Future Tiers
 

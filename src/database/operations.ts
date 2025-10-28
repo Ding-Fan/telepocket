@@ -208,6 +208,79 @@ export class DatabaseOperations {
       return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
     }
   }
+
+  /**
+   * Check metadata cache in z_note_links for given URLs
+   * Returns a Map of url -> metadata for cache hits
+   */
+  async checkMetadataCache(urls: string[]): Promise<Map<string, { title?: string; description?: string; og_image?: string }>> {
+    try {
+      if (urls.length === 0) {
+        return new Map();
+      }
+
+      const { data, error } = await db.getClient()
+        .from('z_note_links')
+        .select('url, title, description, og_image, updated_at')
+        .in('url', urls)
+        .not('title', 'is', null); // Only return entries that have metadata
+
+      if (error) {
+        console.error('Failed to check metadata cache:', error);
+        return new Map();
+      }
+
+      const cache = new Map<string, { title?: string; description?: string; og_image?: string }>();
+
+      (data || []).forEach(item => {
+        if (item.url) {
+          cache.set(item.url, {
+            title: item.title || undefined,
+            description: item.description || undefined,
+            og_image: item.og_image || undefined
+          });
+        }
+      });
+
+      return cache;
+    } catch (error) {
+      console.error('Database error checking metadata cache:', error);
+      return new Map();
+    }
+  }
+
+  /**
+   * Update metadata for a specific link URL in z_links table
+   * Used by background metadata fetch
+   */
+  async updateLinkMetadata(
+    messageId: string,
+    url: string,
+    metadata: { title?: string; description?: string; og_image?: string }
+  ): Promise<boolean> {
+    try {
+      const { error } = await db.getClient()
+        .from('z_links')
+        .update({
+          title: metadata.title,
+          description: metadata.description,
+          og_image: metadata.og_image,
+          updated_at: new Date().toISOString()
+        })
+        .eq('message_id', messageId)
+        .eq('url', url);
+
+      if (error) {
+        console.error('Failed to update link metadata:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Database error updating link metadata:', error);
+      return false;
+    }
+  }
 }
 
 export const dbOps = new DatabaseOperations();

@@ -248,6 +248,39 @@ export class NoteOperations {
       return { notes: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
     }
   }
+
+  /**
+   * Update metadata for a specific link URL in z_note_links table
+   * Used by background metadata fetch
+   */
+  async updateNoteLinkMetadata(
+    noteId: string,
+    url: string,
+    metadata: { title?: string; description?: string; og_image?: string }
+  ): Promise<boolean> {
+    try {
+      const { error } = await db.getClient()
+        .from('z_note_links')
+        .update({
+          title: metadata.title,
+          description: metadata.description,
+          og_image: metadata.og_image,
+          updated_at: new Date().toISOString()
+        })
+        .eq('note_id', noteId)
+        .eq('url', url);
+
+      if (error) {
+        console.error('Failed to update note link metadata:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Database error updating note link metadata:', error);
+      return false;
+    }
+  }
 }
 
 export const noteOps = new NoteOperations();
