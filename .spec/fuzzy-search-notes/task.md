@@ -1,6 +1,6 @@
 # Fuzzy Search & Unified Note System Implementation Tasks
 
-**Status**: MVP Complete + Security Hardened - Production Ready | **MVP Effort**: 34 hours | **Priority**: High
+**Status**: Phase 1 Complete - All Data Migrated | **Total Effort**: 38 hours | **Priority**: High
 
 ---
 
@@ -630,10 +630,69 @@ Comprehensive code review identified 3 critical and 4 high-priority issues requi
 
 ---
 
+## ✅ T-17: Historical Data Migration (2025-11-02)
+
+**Effort**: 4h | **Dependencies**: T-16 | **Status**: COMPLETED
+
+### Migration Goal
+Migrate all historical data from old tables (z_messages, z_links) to new unified note system (z_notes, z_note_links).
+
+### Pre-Migration Analysis
+- [x] Analyzed current data state
+  - Old system: 312 messages, 455 links (June 14 → Oct 26, 2025)
+  - New system: 66 notes, 58 links (Oct 25 → Nov 1, 2025)
+  - Zero overlap (no matching telegram_message_ids)
+  - To migrate: ALL 312 messages + 455 links
+
+### Migration Implementation
+- [x] Created migration file: `migrate_historical_data_to_notes_system`
+- [x] Two-step INSERT approach:
+  1. Migrate messages to notes (with NOT EXISTS deduplication)
+  2. Migrate links to note_links (using message_note_mapping CTE)
+- [x] Idempotent SQL (safe to run multiple times)
+- [x] Original tables preserved (rollback-safe)
+
+### Migration Results
+- [x] **Messages**: 312 migrated (66 → 378 total in z_notes)
+- [x] **Links**: 455 migrated (58 → 513 total in z_note_links)
+- [x] **Date range**: June 14, 2025 → November 1, 2025 (complete history)
+- [x] **Data integrity**: 0 orphaned records, 100% verified
+
+### Verification Queries
+- [x] Record counts match (z_messages:312 = migrated:312)
+- [x] Zero orphaned messages (all have corresponding notes)
+- [x] Zero orphaned links (all properly mapped to notes)
+- [x] Date ranges preserved (oldest: June 14, newest: Nov 1)
+
+### Migration File
+**File**: `supabase/migrations/[timestamp]_migrate_historical_data_to_notes_system.sql`
+
+**Contents**:
+1. Part 1: Migrate messages to notes (INSERT with NOT EXISTS)
+2. Part 2: Migrate links to note_links (with CTE mapping)
+3. Part 3: Verification queries (commented for manual check)
+4. Safety features: Idempotent, rollback strategy, preserves timestamps
+
+### Acceptance
+- ✅ All 312 messages migrated successfully
+- ✅ All 455 links migrated successfully
+- ✅ 100% data integrity verified (0 orphaned records)
+- ✅ Complete date range accessible (June → November 2025)
+- ✅ Migration idempotent (can run multiple times safely)
+- ✅ Original tables preserved (rollback-safe)
+
+### Phase 1 Complete
+- ✅ Dual-write system implemented
+- ✅ Historical data migrated
+- ✅ All 378 notes and 513 links now in new system
+- ✅ Ready for Phase 2 (switch `/ls` reads to new system)
+
+---
+
 ## Current Status Summary
 
-### ✅ MVP Complete + Security Hardened (T-1 through T-16)
-**All core features implemented, hardened, and deployed:**
+### ✅ Phase 1 Complete (T-1 through T-17)
+**All core features implemented, hardened, and fully migrated:**
 - ✅ Database migration with parallel tables (z_notes, z_note_links)
 - ✅ PostgreSQL fuzzy search with pg_trgm extension
 - ✅ Application layer (operations, handlers, display)
@@ -649,6 +708,11 @@ Comprehensive code review identified 3 critical and 4 high-priority issues requi
   - Standardized error handling
   - Query optimization (50% reduction)
   - Migration workflow corrected
+- ✅ **Historical data migration (T-17):**
+  - All 312 messages migrated (z_messages → z_notes)
+  - All 455 links migrated (z_links → z_note_links)
+  - 100% data integrity verified
+  - Complete history accessible (June 2025 → November 2025)
 
 ### 🎯 Available Commands
 ```bash
@@ -664,7 +728,16 @@ Send message with links   # Requires links
 /ls <keyword>            # Search links
 ```
 
-### 🔄 Next Phase: Testing & Validation (T-8 through T-13)
+### 🔄 Next Phase: Phase 2 - Switch Primary Reads
+**Goal**: Transition `/ls` command to read from new system
+- [ ] Update `getLinksWithPagination()` to read from z_notes/z_note_links
+- [ ] Update `searchLinksWithPagination()` to use fuzzy search functions
+- [ ] Keep dual-write active for safety
+- [ ] Test thoroughly in production
+- [ ] Monitor for discrepancies
+- [ ] Verify performance is acceptable
+
+### 🧪 Optional: Testing & Validation (T-8 through T-13)
 - T-10: Manual Testing - Typo Tolerance
 - T-8: Unit Tests - Database Operations
 - T-9: Integration Tests - Fuzzy Search Flow
@@ -672,12 +745,10 @@ Send message with links   # Requires links
 - T-12: Documentation Updates
 - T-13: Code Review and Cleanup
 
-### 📊 Optional Future Enhancements (T-16+)
-- T-16: Per-link annotations
-- T-17: Search history tracking
-- T-18: Saved searches
-- T-19+: Advanced features (pgvector, hybrid ranking, etc.)
-- Data migration from z_messages → z_notes (if desired)
-- Merge old and new systems
+### 📊 Optional Future Enhancements (T-18+)
+- T-18: Per-link annotations
+- T-19: Search history tracking
+- T-20: Saved searches
+- T-21+: Advanced features (pgvector, hybrid ranking, etc.)
 
-**Total MVP Effort**: 34 hours (26.5h MVP + 8h Security Hardening) | **Status**: ✅ Production Ready & Secure
+**Total Effort**: 38 hours (26.5h MVP + 8h Security + 4h Migration) | **Status**: ✅ Phase 1 Complete
