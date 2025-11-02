@@ -28,7 +28,7 @@ export class TelegramClient {
 
   private createMainKeyboard() {
     return new Keyboard()
-      .text('📋 My Saved Links')
+      .text('📋 My Notes')
       .resized()
       .persistent();
   }
@@ -64,7 +64,7 @@ export class TelegramClient {
 • /notes - View all your notes
 • /notes <page> - Go to specific page
 • /notes search <keyword> - Search notes with fuzzy matching
-• 📋 Use the "My Saved Links" button below for quick access!
+• 📋 Use the "My Notes" button below for quick access!
 
 💡 **Pro tips:**
 • Send me multiple links in one message - I'll process them all! 🚀
@@ -298,8 +298,8 @@ Ready to start collecting your digital treasures? 💎✨`;
       }
     });
 
-    // Handle keyboard button for "📋 My Saved Links" - now shows notes
-    this.bot.hears('📋 My Saved Links', async (ctx) => {
+    // Handle keyboard button for "📋 My Notes"
+    this.bot.hears('📋 My Notes', async (ctx) => {
       const userId = ctx.from?.id;
 
       if (!userId || !this.isAuthorizedUser(userId)) {
