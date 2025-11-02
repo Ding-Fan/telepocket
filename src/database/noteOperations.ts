@@ -19,6 +19,18 @@ export interface NoteSearchResult {
   relevance_score?: number;
 }
 
+export interface LinkOnlyResult {
+  link_id: string;
+  note_id: string;
+  url: string;
+  title?: string;
+  description?: string;
+  og_image?: string;
+  created_at: string;
+  updated_at: string;
+  relevance_score?: number;
+}
+
 export class NoteOperations {
   async saveNote(note: Omit<Note, 'id' | 'created_at'>): Promise<string | null> {
     try {
@@ -279,6 +291,159 @@ export class NoteOperations {
     } catch (error) {
       console.error('Database error updating note link metadata:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get individual links with pagination (links-only view)
+   * Returns individual links from z_note_links table
+   */
+  async getLinksOnlyWithPagination(
+    userId: number,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    links: LinkOnlyResult[];
+    totalCount: number;
+    currentPage: number;
+    totalPages: number;
+  }> {
+    try {
+      // Validate inputs
+      const userValidation = validateAuthorizedUser(userId);
+      if (!userValidation.valid) {
+        console.error('Unauthorized user attempt:', userValidation.error);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+      }
+
+      const paginationValidation = validatePagination(page, limit);
+      if (!paginationValidation.valid) {
+        console.error('Invalid pagination:', paginationValidation.error);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+      }
+
+      const { data, error } = await db.getClient()
+        .rpc('get_links_with_pagination', {
+          telegram_user_id_param: userId,
+          page_number: page,
+          page_size: limit
+        });
+
+      if (error) {
+        handleDatabaseError(error, {
+          userId,
+          operation: 'getLinksOnlyWithPagination',
+          timestamp: new Date().toISOString()
+        });
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+      }
+
+      const links = data || [];
+      const totalCount = links.length > 0 ? Number(links[0].total_count) : 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        links: links.map((link: any) => ({
+          link_id: link.link_id,
+          note_id: link.note_id,
+          url: link.url,
+          title: link.title,
+          description: link.description,
+          og_image: link.og_image,
+          created_at: link.created_at,
+          updated_at: link.updated_at
+        })),
+        totalCount,
+        currentPage: page,
+        totalPages
+      };
+    } catch (error) {
+      handleDatabaseError(error, {
+        userId,
+        operation: 'getLinksOnlyWithPagination',
+        timestamp: new Date().toISOString()
+      });
+      return { links: [], totalCount: 0, currentPage: 1, totalPages: 0 };
+    }
+  }
+
+  /**
+   * Search individual links with fuzzy matching (links-only search)
+   * Searches only in link metadata: title, URL, description
+   */
+  async searchLinksOnlyWithPagination(
+    userId: number,
+    keyword: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    links: LinkOnlyResult[];
+    totalCount: number;
+    currentPage: number;
+    totalPages: number;
+    keyword: string;
+  }> {
+    try {
+      // Validate inputs
+      const userValidation = validateAuthorizedUser(userId);
+      if (!userValidation.valid) {
+        console.error('Unauthorized user attempt:', userValidation.error);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+      }
+
+      const paginationValidation = validatePagination(page, limit);
+      if (!paginationValidation.valid) {
+        console.error('Invalid pagination:', paginationValidation.error);
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+      }
+
+      const { data, error } = await db.getClient()
+        .rpc('search_links_fuzzy_optimized', {
+          telegram_user_id_param: userId,
+          search_keyword: keyword,
+          page_number: page,
+          page_size: limit
+        });
+
+      if (error) {
+        handleDatabaseError(error, {
+          userId,
+          operation: 'searchLinksOnlyWithPagination',
+          timestamp: new Date().toISOString(),
+          additionalInfo: { keyword }
+        });
+        return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+      }
+
+      const links = data || [];
+      const totalCount = links.length > 0 ? Number(links[0].total_count) : 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        links: links.map((link: any) => ({
+          link_id: link.link_id,
+          note_id: link.note_id,
+          url: link.url,
+          title: link.title,
+          description: link.description,
+          og_image: link.og_image,
+          created_at: link.created_at,
+          updated_at: link.updated_at,
+          relevance_score: link.relevance_score
+        })),
+        totalCount,
+        currentPage: page,
+        totalPages,
+        keyword
+      };
+    } catch (error) {
+      handleDatabaseError(error, {
+        userId,
+        operation: 'searchLinksOnlyWithPagination',
+        timestamp: new Date().toISOString(),
+        additionalInfo: { keyword }
+      });
+      return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
     }
   }
 }

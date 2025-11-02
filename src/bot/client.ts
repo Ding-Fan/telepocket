@@ -57,10 +57,12 @@ export class TelegramClient {
 📊 All your links are organized and searchable in your database
 
 📚 **Commands:**
-• /list or /ls - View your saved links with pagination
-• /ls keyword - Search links by keyword
+• /links - View all your saved links
+• /links <page> - Go to specific page
+• /links search <keyword> - Search links with fuzzy matching
 • /note <text> - Save a note (links optional)
 • /notes - View all your notes
+• /notes <page> - Go to specific page
 • /notes search <keyword> - Search notes with fuzzy matching
 • 📋 Use the "My Saved Links" button below for quick access!
 
@@ -135,8 +137,8 @@ Ready to start collecting your digital treasures? 💎✨`;
       }
     });
 
-    // List commands (both /list and /ls) - now using note system with fuzzy search
-    this.bot.command(['list', 'ls'], async (ctx) => {
+    // Links command - list or search individual links (from z_note_links table)
+    this.bot.command('links', async (ctx) => {
       const userId = ctx.from?.id;
 
       if (!userId || !this.isAuthorizedUser(userId)) {
@@ -146,40 +148,53 @@ Ready to start collecting your digital treasures? 💎✨`;
 
       // Parse arguments from command
       const args = ctx.message?.text?.split(' ') || [];
-      const keyword = args.slice(1).join(' ');
 
-      if (!keyword) {
-        // No arguments, show first page of notes
-        await this.showNotesPage(ctx, userId, 1);
-      } else {
+      // Check if first argument is 'search'
+      if (args.length > 1 && args[1] === 'search') {
+        // /links search <keyword>
+        const keyword = args.slice(2).join(' ');
+        if (!keyword) {
+          await ctx.reply('Usage: /links search <keyword>');
+          return;
+        }
+
         // Validate search keyword
         const validation = validateSearchKeyword(keyword);
         if (!validation.valid) {
           const errorMessage = handleValidationError(validation.error!, {
             userId,
-            operation: 'listSearchCommand',
+            operation: 'linksSearchCommand',
             timestamp: new Date().toISOString()
           });
           await ctx.reply(errorMessage);
           return;
         }
 
-        // Arguments provided, search notes with fuzzy matching
-        await this.showNoteSearchResults(ctx, userId, keyword, 1);
+        await this.showLinksOnlySearchResults(ctx, userId, keyword, 1);
+      } else if (args.length > 1 && !isNaN(parseInt(args[1]))) {
+        // /links <page_number>
+        const page = parseInt(args[1]);
+        await this.showLinksOnlyPage(ctx, userId, page);
+      } else if (args.length === 1) {
+        // /links (no arguments, show first page)
+        await this.showLinksOnlyPage(ctx, userId, 1);
+      } else {
+        await ctx.reply('Usage:\n/links - List all links\n/links <page> - Go to specific page\n/links search <keyword> - Search links');
       }
     });
 
     // Handle callback queries for pagination
     this.bot.on('callback_query', async (ctx) => {
-      const userId = ctx.from?.id;
+      try {
+        const userId = ctx.from?.id;
 
-      if (!userId || !this.isAuthorizedUser(userId)) {
-        await ctx.answerCallbackQuery('🚫 Unauthorized access.');
-        return;
-      }
+        if (!userId || !this.isAuthorizedUser(userId)) {
+          await ctx.answerCallbackQuery('🚫 Unauthorized access.');
+          return;
+        }
 
-      const data = ctx.callbackQuery.data;
-      if (data?.startsWith('links_page_')) {
+        const data = ctx.callbackQuery.data;
+        if (data?.startsWith('links_page_')) {
         const requestedPage = parseInt(data.replace('links_page_', ''));
 
         // Validate page number
@@ -198,6 +213,12 @@ Ready to start collecting your digital treasures? 💎✨`;
         // Validate page number
         if (isNaN(requestedPage) || requestedPage < 1) {
           await ctx.answerCallbackQuery('❌ Invalid page number.');
+          return;
+        }
+
+        // Validate keyword to prevent injection attacks
+        if (!keyword || keyword.length < 1 || keyword.length > 100) {
+          await ctx.answerCallbackQuery('❌ Invalid search keyword.');
           return;
         }
 
@@ -225,11 +246,55 @@ Ready to start collecting your digital treasures? 💎✨`;
           return;
         }
 
+        // Validate keyword to prevent injection attacks
+        if (!keyword || keyword.length < 1 || keyword.length > 100) {
+          await ctx.answerCallbackQuery('❌ Invalid search keyword.');
+          return;
+        }
+
         await this.showNoteSearchResults(ctx, userId, keyword, requestedPage);
         await ctx.answerCallbackQuery();
-      } else if (data === 'page_info' || data === 'search_info' || data === 'notes_page_info' || data === 'notes_search_info') {
+      } else if (data?.startsWith('links_only_page_')) {
+        const requestedPage = parseInt(data.replace('links_only_page_', ''));
+
+        // Validate page number
+        if (isNaN(requestedPage) || requestedPage < 1) {
+          await ctx.answerCallbackQuery('❌ Invalid page number.');
+          return;
+        }
+
+        await this.showLinksOnlyPage(ctx, userId, requestedPage);
+        await ctx.answerCallbackQuery();
+      } else if (data?.startsWith('links_only_search_')) {
+        const parts = data.replace('links_only_search_', '').split('_');
+        const requestedPage = parseInt(parts[0]);
+        const keyword = decodeURIComponent(parts.slice(1).join('_'));
+
+        // Validate page number
+        if (isNaN(requestedPage) || requestedPage < 1) {
+          await ctx.answerCallbackQuery('❌ Invalid page number.');
+          return;
+        }
+
+        // Validate keyword to prevent injection attacks
+        if (!keyword || keyword.length < 1 || keyword.length > 100) {
+          await ctx.answerCallbackQuery('❌ Invalid search keyword.');
+          return;
+        }
+
+        await this.showLinksOnlySearchResults(ctx, userId, keyword, requestedPage);
+        await ctx.answerCallbackQuery();
+      } else if (data === 'page_info' || data === 'search_info' || data === 'notes_page_info' || data === 'notes_search_info' || data === 'links_only_page_info' || data === 'links_only_search_info') {
         // Handle page indicator click (non-functional, just acknowledge)
         await ctx.answerCallbackQuery('📄 Current page indicator');
+      }
+      } catch (error) {
+        console.error('Callback query error:', error);
+        try {
+          await ctx.answerCallbackQuery('❌ An error occurred. Please try again.');
+        } catch (e) {
+          console.error('Failed to send error callback:', e);
+        }
       }
     });
 
@@ -388,9 +453,11 @@ Ready to start collecting your digital treasures? 💎✨`;
         page = result.totalPages;
       }
 
-      let headerText = `🔍 *Search Results for "${keyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      // Escape keyword to prevent MarkdownV2 injection
+      const escapedKeyword = escapeMarkdownV2(keyword);
+      let headerText = `🔍 *Search Results for "${escapedKeyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
       headerText += `📊 Found: ${result.totalCount} links\n\n`;
-      let message = escapeMarkdownV2(headerText);
+      let message = headerText;
 
       // Format the links using the utility function
       const startNumber = (result.currentPage - 1) * 10 + 1;
@@ -467,26 +534,27 @@ Ready to start collecting your digital treasures? 💎✨`;
 
   async showNotesPage(ctx: any, userId: number, page: number): Promise<void> {
     try {
-      // First, get a quick count to validate page bounds
-      const quickResult = await noteOps.getNotesWithPagination(userId, 1, 1);
+      // Show typing indicator
+      await ctx.replyWithChatAction('typing');
 
-      if (quickResult.totalCount === 0) {
+      // Get the requested page directly (no wasteful count query)
+      const result = await noteOps.getNotesWithPagination(userId, page, 5);
+
+      if (result.totalCount === 0) {
         await ctx.reply('📭 No saved notes found yet!\n\nSend me any message to start building your collection! ✨', {
           reply_markup: this.createMainKeyboard()
         });
         return;
       }
 
-      const totalPages = Math.ceil(quickResult.totalCount / 5);
-
-      // Validate page bounds
-      if (page < 1) {
-        page = 1;
-      } else if (page > totalPages) {
-        page = totalPages;
+      // Validate page bounds after getting data
+      if (page < 1 || page > result.totalPages) {
+        // If invalid page, redirect to page 1
+        if (!ctx.callbackQuery) {
+          await this.showNotesPage(ctx, userId, 1);
+          return;
+        }
       }
-
-      const result = await noteOps.getNotesWithPagination(userId, page, 5);
 
       let headerText = `📝 *Your Notes* (Page ${result.currentPage}/${result.totalPages})\n`;
       headerText += `📊 Total: ${result.totalCount} notes\n\n`;
@@ -566,10 +634,13 @@ Ready to start collecting your digital treasures? 💎✨`;
 
   async showNoteSearchResults(ctx: any, userId: number, keyword: string, page: number): Promise<void> {
     try {
+      // Show typing indicator
+      await ctx.replyWithChatAction('typing');
+
       const result = await noteOps.searchNotesWithPagination(userId, keyword, page, 5);
 
       if (result.totalCount === 0) {
-        await ctx.reply(`🔍 No notes found matching "${keyword}".\n\nTry a different search term or use /ls to see all your notes.`, {
+        await ctx.reply(`🔍 No notes found matching "${keyword}".\n\nTry a different search term or use /links to see all your notes.`, {
           reply_markup: this.createMainKeyboard()
         });
         return;
@@ -582,9 +653,11 @@ Ready to start collecting your digital treasures? 💎✨`;
         page = result.totalPages;
       }
 
-      let headerText = `🔍 *Search Results for "${keyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      // Escape keyword to prevent MarkdownV2 injection
+      const escapedKeyword = escapeMarkdownV2(keyword);
+      let headerText = `🔍 *Search Results for "${escapedKeyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
       headerText += `📊 Found: ${result.totalCount} notes\n\n`;
-      let message = escapeMarkdownV2(headerText);
+      let message = headerText;
 
       // Format the notes with their links and relevance scores
       result.notes.forEach((note, index) => {
@@ -654,6 +727,221 @@ Ready to start collecting your digital treasures? 💎✨`;
     } catch (error) {
       console.error('Error showing note search results:', error);
       await ctx.reply('❌ Sorry, there was an error searching your notes. Please try again later.', {
+        reply_markup: this.createMainKeyboard()
+      });
+    }
+  }
+
+  async showLinksOnlyPage(ctx: any, userId: number, page: number): Promise<void> {
+    try {
+      // Show typing indicator
+      await ctx.replyWithChatAction('typing');
+
+      // Get the requested page directly (no wasteful count query)
+      const result = await noteOps.getLinksOnlyWithPagination(userId, page, 10);
+
+      if (result.totalCount === 0) {
+        await ctx.reply('📭 No saved links found yet!\n\nSend me any message with URLs to start building your collection! 🔗✨', {
+          reply_markup: this.createMainKeyboard()
+        });
+        return;
+      }
+
+      // Validate page bounds after getting data
+      if (page < 1 || page > result.totalPages) {
+        // If invalid page, redirect to page 1
+        if (!ctx.callbackQuery) {
+          await this.showLinksOnlyPage(ctx, userId, 1);
+          return;
+        }
+      }
+
+      let headerText = `🔗 *Your Saved Links* (Page ${result.currentPage}/${result.totalPages})\n`;
+      headerText += `📊 Total: ${result.totalCount} links\n\n`;
+      let message = escapeMarkdownV2(headerText);
+
+      // Format individual links
+      result.links.forEach((link, index) => {
+        const linkNumber = (result.currentPage - 1) * 10 + index + 1;
+        message += `*${linkNumber}\\.* `;
+
+        // Add URL as clickable link
+        const escapedUrl = escapeMarkdownV2(link.url);
+        const escapedTitle = link.title ? escapeMarkdownV2(link.title) : escapeMarkdownV2(link.url);
+        message += `[${escapedTitle}](${escapedUrl})\n`;
+
+        // Add description if available
+        if (link.description) {
+          const truncatedDesc = link.description.length > 100
+            ? link.description.substring(0, 100) + '...'
+            : link.description;
+          message += `   ${escapeMarkdownV2(truncatedDesc)}\n`;
+        }
+
+        message += '\n';
+      });
+
+      // Create pagination buttons
+      const keyboard = [];
+      const buttons = [];
+
+      if (result.currentPage > 1) {
+        buttons.push({
+          text: '⬅️ Previous',
+          callback_data: `links_only_page_${result.currentPage - 1}`
+        });
+      }
+
+      buttons.push({
+        text: `📄 ${result.currentPage}/${result.totalPages}`,
+        callback_data: `links_only_page_info`
+      });
+
+      if (result.currentPage < result.totalPages) {
+        buttons.push({
+          text: 'Next ➡️',
+          callback_data: `links_only_page_${result.currentPage + 1}`
+        });
+      }
+
+      if (buttons.length > 1) {
+        keyboard.push(buttons);
+      }
+
+      const replyMarkup = keyboard.length > 0 ? { inline_keyboard: keyboard } : undefined;
+
+      if (ctx.callbackQuery) {
+        await ctx.editMessageText(message, {
+          reply_markup: replyMarkup,
+          parse_mode: 'MarkdownV2'
+        });
+      } else {
+        if (replyMarkup) {
+          await ctx.reply(message, {
+            reply_markup: replyMarkup,
+            parse_mode: 'MarkdownV2'
+          });
+        } else {
+          await ctx.reply(message, {
+            reply_markup: this.createMainKeyboard(),
+            parse_mode: 'MarkdownV2'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error showing links page:', error);
+      await ctx.reply('❌ Sorry, there was an error retrieving your links. Please try again later.', {
+        reply_markup: this.createMainKeyboard()
+      });
+    }
+  }
+
+  async showLinksOnlySearchResults(ctx: any, userId: number, keyword: string, page: number): Promise<void> {
+    try {
+      // Show typing indicator
+      await ctx.replyWithChatAction('typing');
+
+      const result = await noteOps.searchLinksOnlyWithPagination(userId, keyword, page, 10);
+
+      if (result.totalCount === 0) {
+        await ctx.reply(`🔍 No links found matching "${keyword}".\n\nTry a different search term or use /links to see all your links.`, {
+          reply_markup: this.createMainKeyboard()
+        });
+        return;
+      }
+
+      // Validate page bounds
+      if (page < 1) {
+        page = 1;
+      } else if (page > result.totalPages) {
+        page = result.totalPages;
+      }
+
+      // Escape keyword to prevent MarkdownV2 injection
+      const escapedKeyword = escapeMarkdownV2(keyword);
+      let headerText = `🔍 *Search Results for "${escapedKeyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      headerText += `📊 Found: ${result.totalCount} links\n\n`;
+      let message = headerText;
+
+      // Format individual links with relevance scores
+      result.links.forEach((link, index) => {
+        const linkNumber = (result.currentPage - 1) * 10 + index + 1;
+        message += `*${linkNumber}\\.* `;
+
+        // Add URL as clickable link
+        const escapedUrl = escapeMarkdownV2(link.url);
+        const escapedTitle = link.title ? escapeMarkdownV2(link.title) : escapeMarkdownV2(link.url);
+        message += `[${escapedTitle}](${escapedUrl})`;
+
+        // Add relevance score
+        if (link.relevance_score !== undefined) {
+          const percentage = Math.round(link.relevance_score * 100);
+          message += ` ${escapeMarkdownV2(`(${percentage}%)`)}`;
+        }
+        message += '\n';
+
+        // Add description if available
+        if (link.description) {
+          const truncatedDesc = link.description.length > 100
+            ? link.description.substring(0, 100) + '...'
+            : link.description;
+          message += `   ${escapeMarkdownV2(truncatedDesc)}\n`;
+        }
+
+        message += '\n';
+      });
+
+      // Create pagination buttons
+      const keyboard = [];
+      const buttons = [];
+      const encodedKeyword = encodeURIComponent(keyword);
+
+      if (result.currentPage > 1) {
+        buttons.push({
+          text: '⬅️ Previous',
+          callback_data: `links_only_search_${result.currentPage - 1}_${encodedKeyword}`
+        });
+      }
+
+      buttons.push({
+        text: `🔍 ${result.currentPage}/${result.totalPages}`,
+        callback_data: `links_only_search_info`
+      });
+
+      if (result.currentPage < result.totalPages) {
+        buttons.push({
+          text: 'Next ➡️',
+          callback_data: `links_only_search_${result.currentPage + 1}_${encodedKeyword}`
+        });
+      }
+
+      if (buttons.length > 1) {
+        keyboard.push(buttons);
+      }
+
+      const replyMarkup = keyboard.length > 0 ? { inline_keyboard: keyboard } : undefined;
+
+      if (ctx.callbackQuery) {
+        await ctx.editMessageText(message, {
+          reply_markup: replyMarkup,
+          parse_mode: 'MarkdownV2'
+        });
+      } else {
+        if (replyMarkup) {
+          await ctx.reply(message, {
+            reply_markup: replyMarkup,
+            parse_mode: 'MarkdownV2'
+          });
+        } else {
+          await ctx.reply(message, {
+            reply_markup: this.createMainKeyboard(),
+            parse_mode: 'MarkdownV2'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error showing link search results:', error);
+      await ctx.reply('❌ Sorry, there was an error searching your links. Please try again later.', {
         reply_markup: this.createMainKeyboard()
       });
     }
