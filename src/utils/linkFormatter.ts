@@ -62,6 +62,9 @@ interface NoteData {
     title?: string;
     description?: string;
   }>;
+  images?: Array<{
+    cloudflare_url: string;
+  }>;
   relevance_score?: number;
 }
 
@@ -92,6 +95,15 @@ export function formatNoteForDisplay(
   if (showRelevanceScore && note.relevance_score !== undefined) {
     const scorePercent = Math.round(note.relevance_score * 100);
     formattedText += `🎯 Relevance: ${scorePercent}%\n`;
+  }
+
+  // Display images if any
+  if (note.images && note.images.length > 0) {
+    formattedText += '\n*Images:*\n';
+    note.images.forEach((image) => {
+      const escapedUrl = escapeMarkdownV2(image.cloudflare_url);
+      formattedText += `• ${escapedUrl}\n`;
+    });
   }
 
   // Display links if any
