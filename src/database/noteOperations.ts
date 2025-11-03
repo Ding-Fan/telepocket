@@ -1,4 +1,4 @@
-import { db, Note, NoteLink } from './connection';
+import { db, Note, NoteLink, NoteImage } from './connection';
 import { validateAuthorizedUser, validatePagination } from '../utils/validation';
 import { handleDatabaseError } from '../utils/errorHandler';
 
@@ -444,6 +444,61 @@ export class NoteOperations {
         additionalInfo: { keyword }
       });
       return { links: [], totalCount: 0, currentPage: 1, totalPages: 0, keyword };
+    }
+  }
+
+  async saveNoteImages(
+    noteId: string,
+    images: Omit<NoteImage, 'id' | 'created_at' | 'updated_at'>[]
+  ): Promise<void> {
+    try {
+      const { error } = await db.getClient()
+        .from('z_note_images')
+        .insert(images.map(img => ({ ...img, note_id: noteId })));
+
+      if (error) {
+        handleDatabaseError(error, {
+          operation: 'saveNoteImages',
+          timestamp: new Date().toISOString(),
+          additionalInfo: { noteId, imageCount: images.length }
+        });
+        throw new Error(`Failed to save images: ${error.message}`);
+      }
+    } catch (error) {
+      handleDatabaseError(error, {
+        operation: 'saveNoteImages',
+        timestamp: new Date().toISOString(),
+        additionalInfo: { noteId, imageCount: images.length }
+      });
+      throw error;
+    }
+  }
+
+  async getNoteImages(noteId: string): Promise<NoteImage[]> {
+    try {
+      const { data, error } = await db.getClient()
+        .from('z_note_images')
+        .select('*')
+        .eq('note_id', noteId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        handleDatabaseError(error, {
+          operation: 'getNoteImages',
+          timestamp: new Date().toISOString(),
+          additionalInfo: { noteId }
+        });
+        throw new Error(`Failed to get images: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      handleDatabaseError(error, {
+        operation: 'getNoteImages',
+        timestamp: new Date().toISOString(),
+        additionalInfo: { noteId }
+      });
+      return [];
     }
   }
 }
