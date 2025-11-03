@@ -3,7 +3,7 @@ import { config } from '../config/environment';
 import { dbOps } from '../database/operations';
 import { noteOps } from '../database/noteOperations';
 import { escapeMarkdownV2, formatLinksForDisplay, formatNoteForDisplay } from '../utils/linkFormatter';
-import { handleNoteCommand } from './noteHandlers';
+import { handleNoteCommand, handlePhotoMessage } from './noteHandlers';
 import { validateSearchKeyword } from '../utils/validation';
 import { handleValidationError } from '../utils/errorHandler';
 
@@ -181,6 +181,17 @@ Ready to start collecting your digital treasures? 💎✨`;
       } else {
         await ctx.reply('Usage:\n/links - List all links\n/links <page> - Go to specific page\n/links search <keyword> - Search links');
       }
+    });
+
+    // Handle photo messages - auto-upload to Cloudflare R2
+    this.bot.on('message:photo', async (ctx) => {
+      const userId = ctx.from?.id;
+
+      if (!userId || !this.isAuthorizedUser(userId)) {
+        return;
+      }
+
+      await handlePhotoMessage(ctx);
     });
 
     // Handle callback queries for pagination
@@ -455,7 +466,7 @@ Ready to start collecting your digital treasures? 💎✨`;
 
       // Escape keyword to prevent MarkdownV2 injection
       const escapedKeyword = escapeMarkdownV2(keyword);
-      let headerText = `🔍 *Search Results for "${escapedKeyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      let headerText = `🔍 *Search Results for "${escapedKeyword}"* \\(Page ${result.currentPage}/${result.totalPages}\\)\n`;
       headerText += `📊 Found: ${result.totalCount} links\n\n`;
       let message = headerText;
 
@@ -560,8 +571,19 @@ Ready to start collecting your digital treasures? 💎✨`;
       headerText += `📊 Total: ${result.totalCount} notes\n\n`;
       let message = escapeMarkdownV2(headerText);
 
-      // Format the notes with their links
-      result.notes.forEach((note, index) => {
+      // Fetch images for all notes on this page
+      const notesWithImages = await Promise.all(
+        result.notes.map(async (note) => {
+          const images = await noteOps.getNoteImages(note.note_id);
+          return {
+            ...note,
+            images: images.map(img => ({ cloudflare_url: img.cloudflare_url }))
+          };
+        })
+      );
+
+      // Format the notes with their links and images
+      notesWithImages.forEach((note, index) => {
         const noteNumber = (result.currentPage - 1) * 5 + index + 1;
         message += `*${noteNumber}\\.* `;
         message += formatNoteForDisplay(note, {
@@ -655,12 +677,23 @@ Ready to start collecting your digital treasures? 💎✨`;
 
       // Escape keyword to prevent MarkdownV2 injection
       const escapedKeyword = escapeMarkdownV2(keyword);
-      let headerText = `🔍 *Search Results for "${escapedKeyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      let headerText = `🔍 *Search Results for "${escapedKeyword}"* \\(Page ${result.currentPage}/${result.totalPages}\\)\n`;
       headerText += `📊 Found: ${result.totalCount} notes\n\n`;
       let message = headerText;
 
-      // Format the notes with their links and relevance scores
-      result.notes.forEach((note, index) => {
+      // Fetch images for all notes on this page
+      const notesWithImages = await Promise.all(
+        result.notes.map(async (note) => {
+          const images = await noteOps.getNoteImages(note.note_id);
+          return {
+            ...note,
+            images: images.map(img => ({ cloudflare_url: img.cloudflare_url }))
+          };
+        })
+      );
+
+      // Format the notes with their links, images and relevance scores
+      notesWithImages.forEach((note, index) => {
         const noteNumber = (result.currentPage - 1) * 5 + index + 1;
         message += `*${noteNumber}\\.* `;
         message += formatNoteForDisplay(note, {
@@ -859,7 +892,7 @@ Ready to start collecting your digital treasures? 💎✨`;
 
       // Escape keyword to prevent MarkdownV2 injection
       const escapedKeyword = escapeMarkdownV2(keyword);
-      let headerText = `🔍 *Search Results for "${escapedKeyword}"* (Page ${result.currentPage}/${result.totalPages})\n`;
+      let headerText = `🔍 *Search Results for "${escapedKeyword}"* \\(Page ${result.currentPage}/${result.totalPages}\\)\n`;
       headerText += `📊 Found: ${result.totalCount} links\n\n`;
       let message = headerText;
 
@@ -868,7 +901,7 @@ Ready to start collecting your digital treasures? 💎✨`;
         const linkNumber = (result.currentPage - 1) * 10 + index + 1;
         message += `*${linkNumber}\\.* `;
 
-        // Add URL as clickable link
+        // Add title (if available and not generic) or URL as clickable link
         const escapedUrl = escapeMarkdownV2(link.url);
         const escapedTitle = link.title ? escapeMarkdownV2(link.title) : escapeMarkdownV2(link.url);
         message += `[${escapedTitle}](${escapedUrl})`;
@@ -879,6 +912,9 @@ Ready to start collecting your digital treasures? 💎✨`;
           message += ` ${escapeMarkdownV2(`(${percentage}%)`)}`;
         }
         message += '\n';
+
+        // Always show the actual URL for links-only search (helps distinguish duplicate titles)
+        message += `   🔗 ${escapeMarkdownV2(link.url)}\n`;
 
         // Add description if available
         if (link.description) {

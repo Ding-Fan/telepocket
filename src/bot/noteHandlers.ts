@@ -6,6 +6,7 @@ import { noteOps } from '../database/noteOperations';
 import { escapeMarkdownV2, formatLinksForDisplay } from '../utils/linkFormatter';
 import { validateNoteContent } from '../utils/validation';
 import { handleCommandError, handleValidationError } from '../utils/errorHandler';
+import { imageUploader } from '../services/imageUploader';
 
 /**
  * Handles /note command - saves notes with optional links
@@ -204,6 +205,78 @@ async function processNoteMessage(ctx: Context, messageText: string): Promise<vo
         errorMessage
       );
     }
+}
+
+/**
+ * Handle photo messages - auto-upload to Cloudflare R2
+ */
+export async function handlePhotoMessage(ctx: Context): Promise<void> {
+  try {
+    // 1. Extract photo (largest size)
+    const photos = ctx.message?.photo;
+    if (!photos || photos.length === 0) {
+      return;
+    }
+    const largestPhoto = photos[photos.length - 1];
+
+    // 2. Get caption (note content)
+    const caption = ctx.message?.caption?.trim() || '';
+
+    // 3. Get user ID
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply('❌ Unable to identify user');
+      return;
+    }
+
+    // 4. Download from Telegram
+    const file = await ctx.api.getFile(largestPhoto.file_id);
+    const fileUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`;
+    const response = await fetch(fileUrl);
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    // 5. Upload to R2
+    const uploadResult = await imageUploader.uploadImage(buffer, {
+      originalFileName: file.file_path?.split('/').pop(),
+      mimeType: 'image/jpeg', // Telegram converts photos to JPEG
+    });
+
+    // 6. Save note with caption
+    const note = await noteOps.saveNote({
+      telegram_user_id: userId,
+      content: caption || '(Image)',
+      telegram_message_id: ctx.message!.message_id,
+    });
+
+    if (!note) {
+      await ctx.reply('❌ Failed to save note');
+      return;
+    }
+
+    // 7. Save image record
+    await noteOps.saveNoteImages(note, [{
+      note_id: note,
+      telegram_file_id: largestPhoto.file_id,
+      telegram_file_unique_id: largestPhoto.file_unique_id,
+      cloudflare_url: uploadResult.cloudflareUrl,
+      file_name: uploadResult.fileName,
+      file_size: uploadResult.fileSize,
+      mime_type: uploadResult.mimeType,
+      width: largestPhoto.width,
+      height: largestPhoto.height,
+    }]);
+
+    // 8. Reply with URL
+    await ctx.reply(
+      `✅ Saved note with 1 image\n\n*Images:*\n• ${escapeMarkdownV2(uploadResult.cloudflareUrl)}`,
+      { parse_mode: 'MarkdownV2' }
+    );
+
+  } catch (error) {
+    console.error('Error handling photo:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await ctx.reply(`❌ Failed to upload image: ${errorMessage}`);
+  }
 }
 
 // Export instance creation - will be initialized in index.ts
