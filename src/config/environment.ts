@@ -11,6 +11,13 @@ interface Config {
     url: string;
     anonKey: string;
   };
+  cloudflareR2: {
+    accountId: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucketName: string;
+    publicUrl: string;
+  };
   environment: string;
 }
 
@@ -19,11 +26,16 @@ function validateEnv(): Config {
     'TELEGRAM_BOT_TOKEN',
     'TELEGRAM_USER_ID',
     'SUPABASE_URL',
-    'SUPABASE_ANON_KEY'
+    'SUPABASE_ANON_KEY',
+    'CLOUDFLARE_R2_ACCOUNT_ID',
+    'CLOUDFLARE_R2_ACCESS_KEY_ID',
+    'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+    'CLOUDFLARE_R2_BUCKET_NAME',
+    'CLOUDFLARE_R2_PUBLIC_URL'
   ];
 
   const missing = requiredVars.filter(varName => !process.env[varName]);
-  
+
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
@@ -41,6 +53,13 @@ function validateEnv(): Config {
     supabase: {
       url: process.env.SUPABASE_URL!,
       anonKey: process.env.SUPABASE_ANON_KEY!
+    },
+    cloudflareR2: {
+      accountId: process.env.CLOUDFLARE_R2_ACCOUNT_ID!,
+      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
+      bucketName: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
+      publicUrl: process.env.CLOUDFLARE_R2_PUBLIC_URL!
     },
     environment: process.env.NODE_ENV || 'development'
   };

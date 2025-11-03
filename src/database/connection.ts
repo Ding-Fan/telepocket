@@ -39,6 +39,21 @@ export interface NoteLink {
   updated_at?: string;
 }
 
+export interface NoteImage {
+  id?: string;
+  note_id: string;
+  telegram_file_id: string;
+  telegram_file_unique_id: string;
+  cloudflare_url: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  width?: number;
+  height?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 class DatabaseConnection {
   private client: SupabaseClient;
 
