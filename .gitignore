@@ -6,5 +6,7 @@ dist/
 .vscode/
 .idea/
 
+.turbo/
+
 .claude/
 .mcp.*

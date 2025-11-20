@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@theme {
+  /* Color Palette - Deep Ocean with Warm Accents */
+  --color-ocean-950: #0a0e1a;
+  --color-ocean-900: #0f1729;
+  --color-ocean-800: #1a2238;
+  --color-ocean-700: #253047;
+  --color-ocean-600: #364156;
+  --color-ocean-500: #4a5a78;
+  --color-ocean-400: #6b7a98;
+  --color-ocean-300: #8d9bb8;
+  --color-ocean-200: #b4bfd8;
+  --color-ocean-100: #dce3f0;
+  --color-ocean-50: #f0f4fa;
+
+  --color-amber-500: #f59e0b;
+  --color-amber-400: #fbbf24;
+  --color-amber-300: #fcd34d;
+  
+  --color-cyan-500: #06b6d4;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-300: #67e8f9;
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+  
+  /* Spacing refinements */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+  
+  /* Border radius */
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  
+  /* Shadows */
+  --shadow-glow: 0 0 20px rgba(6, 182, 212, 0.3);
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .bg-glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .bg-glass-light {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .gradient-ocean {
+    background: linear-gradient(135deg, var(--color-ocean-800) 0%, var(--color-ocean-900) 100%);
+  }
+  
+  .gradient-accent {
+    background: linear-gradient(135deg, var(--color-cyan-500) 0%, var(--color-amber-500) 100%);
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply relative flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300;
+    @apply text-ocean-300 hover:text-white hover:bg-white/10;
+  }
+  
+  .nav-link-active {
+    @apply text-white bg-gradient-to-r from-cyan-500/20 to-amber-500/20;
+    @apply shadow-[0_0_20px_rgba(6,182,212,0.2)];
+  }
+  
+  .nav-link-active::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-cyan-500 to-amber-500 rounded-r-full;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Base Styles */
+* {
+  @apply border-ocean-700;
+}
+
+body {
+  @apply bg-ocean-950 text-ocean-100 antialiased;
+  font-family: var(--font-sans);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-ocean-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-ocean-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ocean-500;
+}
