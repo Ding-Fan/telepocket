@@ -1,17 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/utils/supabase/client';
 import { NoteCategory } from '@/constants/categories';
-
-interface SearchNote {
-  note_id: string;
-  note_content: string;
-  category: NoteCategory;
-  telegram_message_id: number;
-  created_at: string;
-  links: any[];
-  relevance_score: number;
-  total_count: number;
-}
+import { searchNotesHybrid } from '@/actions/notes';
+import { HybridSearchResult } from '@telepocket/shared';
 
 interface UseNotesSearchOptions {
   userId: number;
@@ -21,7 +11,7 @@ interface UseNotesSearchOptions {
 }
 
 interface UseNotesSearchReturn {
-  results: SearchNote[];
+  results: HybridSearchResult[];
   loading: boolean;
   error: string | null;
   totalCount: number;
@@ -35,7 +25,7 @@ export function useNotesSearch({
   pageSize = 20,
   debounceMs = 300
 }: UseNotesSearchOptions): UseNotesSearchReturn {
-  const [results, setResults] = useState<SearchNote[]>([]);
+  const [results, setResults] = useState<HybridSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
@@ -74,21 +64,16 @@ export function useNotesSearch({
       setLoading(true);
       setError(null);
 
-      const supabase = createClient();
-
-      const { data, error: rpcError } = await supabase.rpc(
-        'search_notes_fuzzy_optimized',
-        {
-          telegram_user_id_param: userId,
-          search_keyword: debouncedQuery.trim(),
-          page_number: page,
-          page_size: pageSize
-        }
+      const { results: data, totalCount: newTotalCount, error: searchError } = await searchNotesHybrid(
+        userId,
+        debouncedQuery.trim(),
+        page,
+        pageSize
       );
 
-      if (rpcError) {
-        console.error('Search failed:', rpcError);
-        setError(`Search failed: ${rpcError.message}`);
+      if (searchError) {
+        console.error('Search failed:', searchError);
+        setError(`Search failed: ${searchError}`);
         setResults([]);
         return;
       }
@@ -101,8 +86,6 @@ export function useNotesSearch({
         return;
       }
 
-      // Extract total count from first row
-      const newTotalCount = data[0]?.total_count || 0;
       setTotalCount(newTotalCount);
 
       // Append or replace results based on page

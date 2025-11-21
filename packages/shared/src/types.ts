@@ -86,3 +86,14 @@ export interface NoteImage {
     created_at?: string;
     updated_at?: string;
 }
+
+export interface HybridSearchResult {
+    id: string;
+    content: string;
+    category: NoteCategory | null;
+    relevance_score: number;
+    search_type: 'semantic' | 'fuzzy' | 'semantic+fuzzy';
+    links: { id: string; url: string; title?: string }[];
+    created_at: string;
+    total_count: number;
+}

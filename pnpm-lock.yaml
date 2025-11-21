@@ -120,6 +120,10 @@ importers:
         version: 5.8.3
 
   packages/shared:
+    dependencies:
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
     devDependencies:
       typescript:
         specifier: ^5.3.3

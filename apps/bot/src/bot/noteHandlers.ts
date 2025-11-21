@@ -107,132 +107,144 @@ export class NoteMessageHandler {
  * @param messageText The note content to save
  */
 async function processNoteMessage(ctx: Context, messageText: string): Promise<void> {
-    // Validate note content
-    const validation = validateNoteContent(messageText);
-    if (!validation.valid) {
-      const errorMessage = handleValidationError(validation.error!, {
-        userId: ctx.message?.from?.id,
-        operation: 'processNoteMessage',
-        timestamp: new Date().toISOString()
-      });
-      await ctx.reply(errorMessage);
-      return;
-    }
-
-    // Extract URLs from the message (optional - note can exist without links)
-    const urls = linkExtractor.extractAndValidateUrls(messageText);
-
-    // Calculate total steps for progress tracking
-    const hasLinks = urls.length > 0;
-    const hasClassification = config.llm.classificationEnabled;
-    const totalSteps = (hasLinks ? 2 : 0) + (hasClassification ? 1 : 0);
-
-    // Start status message with timing threshold
-    const status = await StatusMessageManager.start(ctx, {
-      operation: 'processing_note',
-      totalSteps: totalSteps > 0 ? totalSteps : undefined,
-      showAfterMs: 500
+  // Validate note content
+  const validation = validateNoteContent(messageText);
+  if (!validation.valid) {
+    const errorMessage = handleValidationError(validation.error!, {
+      userId: ctx.message?.from?.id,
+      operation: 'processNoteMessage',
+      timestamp: new Date().toISOString()
     });
+    await ctx.reply(errorMessage);
+    return;
+  }
 
-    try {
-      // Prepare note data
-      const note = {
-        telegram_user_id: ctx.message!.from!.id,
-        telegram_message_id: ctx.message!.message_id,
-        content: messageText,
-      };
+  // Extract URLs from the message (optional - note can exist without links)
+  const urls = linkExtractor.extractAndValidateUrls(messageText);
 
-      let result: { success: boolean; linkCount: number; noteId?: string };
-      let currentStep = 0;
+  // Calculate total steps for progress tracking
+  const hasLinks = urls.length > 0;
+  const hasClassification = config.llm.classificationEnabled;
+  const totalSteps = (hasLinks ? 2 : 0) + (hasClassification ? 1 : 0);
 
-      // If there are links, fetch metadata and save with links
-      if (urls.length > 0) {
-        // Step 1: Extract links (already done above, but update status)
-        if (totalSteps > 0) {
-          currentStep++;
-          await status.update(currentStep);
+  // Start status message with timing threshold
+  const status = await StatusMessageManager.start(ctx, {
+    operation: 'processing_note',
+    totalSteps: totalSteps > 0 ? totalSteps : undefined,
+    showAfterMs: 500
+  });
+
+  try {
+    // Prepare note data
+    const note = {
+      telegram_user_id: ctx.message!.from!.id,
+      telegram_message_id: ctx.message!.message_id,
+      content: messageText,
+    };
+
+    let result: { success: boolean; linkCount: number; noteId?: string };
+    let currentStep = 0;
+
+    // If there are links, fetch metadata and save with links
+    if (urls.length > 0) {
+      // Step 1: Extract links (already done above, but update status)
+      if (totalSteps > 0) {
+        currentStep++;
+        await status.update(currentStep);
+      }
+
+      // Step 2: Fetch metadata for all URLs
+      const urlsWithMetadata = await metadataFetcher.fetchMetadataForUrls(urls);
+
+      if (totalSteps > 0) {
+        currentStep++;
+        await status.update(currentStep);
+      }
+
+      const links = urlsWithMetadata.map(({ url, metadata }) => ({
+        url,
+        title: metadata.title,
+        description: metadata.description,
+        og_image: metadata.og_image,
+      }));
+
+      // Save note with links
+      result = await noteOps.saveNoteWithLinks(note, links);
+
+      // Build success message with links
+      if (result.success) {
+        let successMessage = `✅ *Saved note with ${result.linkCount} link${result.linkCount === 1 ? '' : 's'}:*\n\n`;
+
+        // Show note content
+        const escapedContent = escapeMarkdownV2(messageText.substring(0, 100) + (messageText.length > 100 ? '...' : ''));
+        successMessage += `📝 _${escapedContent}_\n\n`;
+
+        // Format saved links
+        const formattedLinks = formatLinksForDisplay(urlsWithMetadata.map(item => ({
+          url: item.url,
+          title: item.metadata.title,
+          description: item.metadata.description
+        })), {
+          startNumber: 1,
+          maxDescriptionLength: 80,
+          showNumbers: true
+        });
+
+        successMessage += formattedLinks;
+
+        // Complete status with final message
+        const completion = await status.complete(successMessage, { parse_mode: 'MarkdownV2' });
+
+        // Trigger async classification (non-blocking)
+        if (result.noteId && hasClassification && completion.messageId) {
+          // Classification happens asynchronously without blocking user
+          classifyNoteAsync(ctx, result.noteId, completion.messageId, messageText, urls, successMessage)
+            .catch(err => console.error('Async classification error:', err));
         }
 
-        // Step 2: Fetch metadata for all URLs
-        const urlsWithMetadata = await metadataFetcher.fetchMetadataForUrls(urls);
-
-        if (totalSteps > 0) {
-          currentStep++;
-          await status.update(currentStep);
-        }
-
-        const links = urlsWithMetadata.map(({ url, metadata }) => ({
-          url,
-          title: metadata.title,
-          description: metadata.description,
-          og_image: metadata.og_image,
-        }));
-
-        // Save note with links
-        result = await noteOps.saveNoteWithLinks(note, links);
-
-        // Build success message with links
-        if (result.success) {
-          let successMessage = `✅ *Saved note with ${result.linkCount} link${result.linkCount === 1 ? '' : 's'}:*\n\n`;
-
-          // Show note content
-          const escapedContent = escapeMarkdownV2(messageText.substring(0, 100) + (messageText.length > 100 ? '...' : ''));
-          successMessage += `📝 _${escapedContent}_\n\n`;
-
-          // Format saved links
-          const formattedLinks = formatLinksForDisplay(urlsWithMetadata.map(item => ({
-            url: item.url,
-            title: item.metadata.title,
-            description: item.metadata.description
-          })), {
-            startNumber: 1,
-            maxDescriptionLength: 80,
-            showNumbers: true
-          });
-
-          successMessage += formattedLinks;
-
-          // Complete status with final message
-          const completion = await status.complete(successMessage, { parse_mode: 'MarkdownV2' });
-
-          // Trigger async classification (non-blocking)
-          if (result.noteId && hasClassification && completion.messageId) {
-            // Classification happens asynchronously without blocking user
-            classifyNoteAsync(ctx, result.noteId, completion.messageId, messageText, urls, successMessage)
-              .catch(err => console.error('Async classification error:', err));
-          }
-        } else {
-          await status.complete('❌ Database error while saving note. Please try again.');
+        // Trigger async embedding (non-blocking)
+        if (result.noteId) {
+          embedNoteAsync(result.noteId, messageText, links)
+            .catch(err => console.error('Async embedding error:', err));
         }
       } else {
-        // No links - just save as a plain note
-        result = await noteOps.saveNoteWithLinks(note, []);
-
-        if (result.success) {
-          const escapedContent = escapeMarkdownV2(messageText.substring(0, 150) + (messageText.length > 150 ? '...' : ''));
-          const successMessage = `✅ *Saved note:*\n\n📝 _${escapedContent}_`;
-
-          // Complete status with final message
-          const completion = await status.complete(successMessage, { parse_mode: 'MarkdownV2' });
-
-          // Trigger async classification (non-blocking)
-          if (result.noteId && hasClassification && completion.messageId) {
-            // Classification happens asynchronously without blocking user
-            classifyNoteAsync(ctx, result.noteId, completion.messageId, messageText, [], successMessage)
-              .catch(err => console.error('Async classification error:', err));
-          }
-        } else {
-          await status.complete('❌ Database error while saving note. Please try again.');
-        }
+        await status.complete('❌ Database error while saving note. Please try again.');
       }
-    } catch (error) {
-      const errorMessage = handleCommandError(error, {
-        userId: ctx.message?.from?.id,
-        operation: 'processNoteMessage',
-        timestamp: new Date().toISOString()
-      });
-      await status.complete(errorMessage);
+    } else {
+      // No links - just save as a plain note
+      result = await noteOps.saveNoteWithLinks(note, []);
+
+      if (result.success) {
+        const escapedContent = escapeMarkdownV2(messageText.substring(0, 150) + (messageText.length > 150 ? '...' : ''));
+        const successMessage = `✅ *Saved note:*\n\n📝 _${escapedContent}_`;
+
+        // Complete status with final message
+        const completion = await status.complete(successMessage, { parse_mode: 'MarkdownV2' });
+
+        // Trigger async classification (non-blocking)
+        if (result.noteId && hasClassification && completion.messageId) {
+          // Classification happens asynchronously without blocking user
+          classifyNoteAsync(ctx, result.noteId, completion.messageId, messageText, [], successMessage)
+            .catch(err => console.error('Async classification error:', err));
+        }
+
+        // Trigger async embedding (non-blocking)
+        if (result.noteId) {
+          embedNoteAsync(result.noteId, messageText, [])
+            .catch(err => console.error('Async embedding error:', err));
+        }
+      } else {
+        await status.complete('❌ Database error while saving note. Please try again.');
+      }
     }
+  } catch (error) {
+    const errorMessage = handleCommandError(error, {
+      userId: ctx.message?.from?.id,
+      operation: 'processNoteMessage',
+      timestamp: new Date().toISOString()
+    });
+    await status.complete(errorMessage);
+  }
 }
 
 /**
@@ -424,4 +436,49 @@ export function initNoteMessageHandler(): NoteMessageHandler {
     handlerInstance = new NoteMessageHandler();
   }
   return handlerInstance;
+}
+
+// Helper to embed note asynchronously
+async function embedNoteAsync(noteId: string, content: string, links: any[]): Promise<void> {
+  try {
+    // Re-importing here to avoid top-level await issues or circular deps if any
+    // Use require to avoid ESM/CJS interop issues with dynamic import in some environments
+    // But for now, let's try standard import but handle the default export if needed
+    const shared = await import('@telepocket/shared');
+    const EmbeddingService = shared.EmbeddingService;
+
+    const { createClient } = await import('@supabase/supabase-js');
+
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+
+    if (!apiKey || !supabaseUrl || !supabaseKey) {
+      console.warn('Missing env vars for embedding, skipping auto-embed');
+      return;
+    }
+
+    const embeddingService = new EmbeddingService(apiKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const text = embeddingService.prepareNoteText({
+      content,
+      links: links.map(l => ({ title: l.title, url: l.url }))
+    });
+
+    const embedding = await embeddingService.generateEmbedding(text);
+
+    const { error } = await supabase
+      .from('z_notes')
+      .update({ embedding })
+      .eq('id', noteId);
+
+    if (error) {
+      console.error('Failed to save embedding:', error);
+    } else {
+      console.log(`✅ Embedded note ${noteId}`);
+    }
+  } catch (error) {
+    console.error('Error auto-embedding note:', error);
+  }
 }

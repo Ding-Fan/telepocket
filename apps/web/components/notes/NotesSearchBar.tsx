@@ -126,9 +126,10 @@ export function NotesSearchBar({
       )}
 
       {/* Search hint */}
-      {isExpanded && value && (
-        <div className="mt-2 text-xs text-ocean-400 animate-fade-in">
-          Press Esc to clear search
+      {isExpanded && (
+        <div className="mt-2 text-xs text-ocean-400 animate-fade-in flex justify-between items-center">
+          <span>Try: "latest todo", "make me happy", "help find job"</span>
+          {value && <span>Press Esc to clear</span>}
         </div>
       )}
     </div>
