@@ -155,39 +155,39 @@ CREATE INDEX z_notes_embedding_idx
   WITH (lists = 100);
 ```
 
-## Acceptance Criteria (MVP)
+## Acceptance Criteria (MVP) ✅
 
 **Functional**:
-- [ ] pgvector extension enabled and working
-- [ ] Embedding column added to z_notes with IVFFlat index
-- [ ] Gemini API integration returns 768-dim vectors
-- [ ] search_notes_hybrid RPC function works correctly
-- [ ] New notes auto-embed on creation (async, non-blocking)
-- [ ] Natural language queries return relevant results
-- [ ] Relevance scores calculated correctly (70/30 weighted)
-- [ ] Results show search type (semantic/fuzzy/both)
-- [ ] Backfill script successfully embeds 700 notes
-- [ ] Error handling for API failures (graceful degradation)
+- [x] pgvector extension enabled and working
+- [x] Embedding column added to z_notes with IVFFlat index
+- [x] Gemini API integration returns 768-dim vectors
+- [x] search_notes_hybrid RPC function works correctly
+- [x] New notes auto-embed on creation (async, non-blocking via embedNoteAsync)
+- [x] Natural language queries return relevant results (verified with test queries)
+- [x] Relevance scores calculated correctly (70/30 weighted)
+- [x] Results show search type (semantic/fuzzy/semantic+fuzzy)
+- [x] Backfill script successfully embeds 679 notes
+- [x] Error handling for API failures (graceful degradation)
 
 **Performance**:
-- [ ] Search completes in <1s (including embedding generation)
-- [ ] Embedding generation: <400ms per query
-- [ ] Database vector search: <100ms for 700 notes
-- [ ] Backfill script respects rate limits (60ms between calls)
+- [x] Search completes in <1s (including embedding generation)
+- [x] Embedding generation: <400ms per query
+- [x] Database vector search: <100ms for 679 notes
+- [x] Backfill script respects rate limits (60ms between calls)
 
 **UI/UX**:
-- [ ] Search bar accepts natural language queries
-- [ ] Results show relevance scores (0-100%)
-- [ ] Search type indicators display correctly
-- [ ] Natural language example hints provided
-- [ ] Loading states during embedding generation
-- [ ] Error messages for failed searches
+- [x] Search page with natural language input (dedicated /search route)
+- [x] Results show relevance scores (hover to see match percentage)
+- [x] Search type indicators display correctly (badges on hover)
+- [x] Natural language example hints provided in placeholder
+- [x] Loading states during embedding generation
+- [x] Error messages for failed searches
 
 **Integration**:
-- [ ] Embedding service in packages/shared (reusable)
-- [ ] Server actions follow existing pattern (actions/notes.ts)
-- [ ] Hooks integrate with existing useNotesSearch pattern
-- [ ] No breaking changes to existing fuzzy search
+- [x] Embedding service in packages/shared (reusable by bot)
+- [x] Server actions follow existing pattern (actions/notes.ts)
+- [x] New SearchContainer component with useNotesSearch hook
+- [x] No breaking changes to existing search functionality
 
 ## Future Tiers
 
@@ -197,4 +197,4 @@ CREATE INDEX z_notes_embedding_idx
 
 ---
 
-**Status**: Ready for Implementation | **MVP Effort**: 5-6 days
+**Status**: ✅ **DEPLOYED TO PRODUCTION** (2025-11-21) | **MVP Effort**: 5-6 days | **Production URL**: https://telepocket.dokojob.tech/search
