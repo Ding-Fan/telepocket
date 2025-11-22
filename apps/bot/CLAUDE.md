@@ -21,6 +21,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Uses pnpm as the package manager (version 10.12.1)
 - Run `pnpm install` to install dependencies
 
+### Deployment
+
+**CRITICAL: When deploying, ALWAYS deploy BOTH apps (bot + web)**
+
+This is a Turborepo monorepo with two production apps:
+- `telepocket` - Telegram bot (apps/bot)
+- `telepocket-web` - Next.js web app (apps/web)
+
+**Supabase migrations location**: `packages/shared/supabase/migrations/`
+
+**Before deployment (if schema changes exist):**
+1. Navigate to `packages/shared/supabase/`
+2. Review pending migrations: `supabase migration list`
+3. Deploy migrations: `supabase db push`
+4. Verify schema changes: `supabase db diff`
+
+**Deployment workflow when user says "deploy":**
+1. Build entire monorepo: `pnpm build` (from root)
+2. Deploy bot: `pm2 stop telepocket && pm2 start apps/bot/ecosystem.config.js`
+3. Deploy web: `pm2 stop telepocket-web && pm2 start apps/web/ecosystem.config.js`
+4. Save: `pm2 save`
+5. Verify both apps: `pm2 logs --lines 30 --nostream`
+
+**Why deploy both:**
+- They share the `@telepocket/shared` package
+- Schema changes affect both apps
+- Ensures consistency across the entire system
+
+**PM2 Process Names:**
+- Bot: `telepocket`
+- Web: `telepocket-web`
+
 ## Architecture Overview
 
 This is a TypeScript Telegram bot that automatically captures and stores links from messages using Grammy.js framework and Supabase database.
