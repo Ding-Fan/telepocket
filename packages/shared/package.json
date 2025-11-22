@@ -8,9 +8,12 @@
         "dev": "tsc --watch"
     },
     "devDependencies": {
+        "next": "^14.0.4",
         "typescript": "^5.3.3"
     },
     "dependencies": {
-        "@google/generative-ai": "^0.24.1"
+        "@google/generative-ai": "^0.24.1",
+        "@supabase/ssr": "^0.7.0",
+        "@supabase/supabase-js": "^2.50.0"
     }
 }
