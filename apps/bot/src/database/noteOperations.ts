@@ -45,6 +45,22 @@ export interface GlanceNote {
   category_max_updated: string;
 }
 
+export interface StreamNote {
+  note_id: string;
+  category: string;
+  content: string;
+  updated_at: string;
+  created_at: string;
+  telegram_message_id: number;
+  link_count: number;
+  image_count: number;
+  is_marked: boolean;
+  impression_count: number;
+  row_number: number;
+  category_total: number;
+  section: 'priority' | 'category';
+}
+
 export interface SuggestionNote {
   note_id: string;
   category: string;
@@ -973,6 +989,47 @@ export class NoteOperations {
         operation: 'getNotesGlanceView',
         timestamp: new Date().toISOString(),
         additionalInfo: { notesPerCategory }
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Get glance priority stream - 3 priority notes + 2 per category
+   */
+  async getNotesGlancePriorityStream(
+    userId: number,
+    priorityLimit: number = 3,
+    notesPerCategory: number = 2
+  ): Promise<StreamNote[]> {
+    try {
+      // Validate authorized user
+      const userValidation = validateAuthorizedUser(userId);
+      if (!userValidation.valid) {
+        console.error('Unauthorized user attempt:', userValidation.error);
+        return [];
+      }
+
+      // Call RPC function
+      const { data, error } = await db.getClient()
+        .rpc('get_notes_priority_stream', {
+          telegram_user_id_param: userId,
+          priority_limit: priorityLimit,
+          notes_per_category: notesPerCategory
+        });
+
+      if (error) {
+        console.error('Failed to fetch glance priority stream:', error);
+        return [];
+      }
+
+      return (data || []) as StreamNote[];
+    } catch (error) {
+      handleDatabaseError(error, {
+        userId,
+        operation: 'getNotesGlancePriorityStream',
+        timestamp: new Date().toISOString(),
+        additionalInfo: { priorityLimit, notesPerCategory }
       });
       return [];
     }

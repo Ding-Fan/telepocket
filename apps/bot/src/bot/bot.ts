@@ -8,11 +8,9 @@ import { notesCommand, initNotesCommandViews } from './commands/notes';
 import { archivedCommand, initArchivedCommandViews } from './commands/archived';
 import { linksCommand, initLinksCommandViews } from './commands/links';
 import { searchCommand, initSearchCommandViews } from './commands/search';
-import { glanceCommand, initGlanceCommandViews } from './commands/glance';
 import { suggestCommand, initSuggestCommandViews } from './commands/suggest';
 import { callbackHandler, initCallbackHandlerViews } from './handlers/callbacks';
 import { messageHandler } from './handlers/messages';
-import { showGlanceView } from './views/glance';
 import { showSuggestView, showSuggestViewWithQuery } from './views/suggest';
 
 /**
@@ -89,11 +87,6 @@ class ModularTelegramClient {
     });
 
     // Use imported view functions (no longer in client)
-    initGlanceCommandViews({
-      showGlanceView: showGlanceView,
-    });
-
-    // Use imported view functions (no longer in client)
     initSuggestCommandViews({
       showSuggestView: showSuggestView,
       showSuggestViewWithQuery: showSuggestViewWithQuery,
@@ -111,7 +104,6 @@ class ModularTelegramClient {
       showLinksOnlySearchResults: client.showLinksOnlySearchResults.bind(client),
       showNotesByCategory: client.showNotesByCategory.bind(client),
       showNoteDetail: client.showNoteDetail.bind(client),
-      showGlanceView: showGlanceView,
       showSuggestView: showSuggestView,
       showSuggestViewWithQuery: showSuggestViewWithQuery,
       showDeleteConfirmation: client.showDeleteConfirmation.bind(client),
@@ -139,7 +131,6 @@ class ModularTelegramClient {
     this.bot.use(archivedCommand);
     this.bot.use(linksCommand);
     this.bot.use(searchCommand);
-    this.bot.use(glanceCommand);
     this.bot.use(suggestCommand);
     this.bot.use(classifyCommand);
 

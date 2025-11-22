@@ -23,9 +23,6 @@ const NOTES_SECTION = `**📝 Notes Management:**
   Example: Remember to review PR #123
   Example: Check out https://example.com
 
-• /glance - Quick overview of 2 recent notes per category
-  Example: /glance
-
 • /notes - View all notes (page 1)
 • /notes <page> - Go to specific page
   Example: /notes 3

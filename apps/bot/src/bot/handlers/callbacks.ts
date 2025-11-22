@@ -15,7 +15,6 @@ let showLinksOnlyPage: (ctx: any, userId: number, page: number) => Promise<void>
 let showLinksOnlySearchResults: (ctx: any, userId: number, keyword: string, page: number) => Promise<void>;
 let showNotesByCategory: (ctx: any, userId: number, category: string, page: number) => Promise<void>;
 let showNoteDetail: (ctx: any, userId: number, noteId: string, returnPath: string) => Promise<void>;
-let showGlanceView: (ctx: any, userId: number) => Promise<void>;
 let showSuggestView: (ctx: any, userId: number) => Promise<void>;
 let showSuggestViewWithQuery: (ctx: any, userId: number, query: string) => Promise<void>;
 let showDeleteConfirmation: (ctx: any, noteId: string, returnPath: string) => Promise<void>;
@@ -40,7 +39,6 @@ export function initCallbackHandlerViews(views: {
   showLinksOnlySearchResults: typeof showLinksOnlySearchResults;
   showNotesByCategory: typeof showNotesByCategory;
   showNoteDetail: typeof showNoteDetail;
-  showGlanceView: typeof showGlanceView;
   showSuggestView: typeof showSuggestView;
   showSuggestViewWithQuery: typeof showSuggestViewWithQuery;
   showDeleteConfirmation: typeof showDeleteConfirmation;
@@ -60,7 +58,6 @@ export function initCallbackHandlerViews(views: {
   showLinksOnlySearchResults = views.showLinksOnlySearchResults;
   showNotesByCategory = views.showNotesByCategory;
   showNoteDetail = views.showNoteDetail;
-  showGlanceView = views.showGlanceView;
   showSuggestView = views.showSuggestView;
   showSuggestViewWithQuery = views.showSuggestViewWithQuery;
   showDeleteConfirmation = views.showDeleteConfirmation;
