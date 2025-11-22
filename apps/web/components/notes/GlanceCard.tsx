@@ -1,11 +1,14 @@
-import { GlanceNote } from '@/constants/categories';
+import { GlanceNote, PriorityNote } from '@telepocket/shared';
+import { PinToggleButton } from './PinToggleButton';
 
 interface GlanceCardProps {
-  note: GlanceNote;
+  note: GlanceNote | PriorityNote;
   onClick?: () => void;
+  isMarked?: boolean;
+  onPinToggle?: () => Promise<void>;
 }
 
-export function GlanceCard({ note, onClick }: GlanceCardProps) {
+export function GlanceCard({ note, onClick, isMarked = false, onPinToggle }: GlanceCardProps) {
   // Format date as "MMM DD"
   const formattedDate = new Date(note.updated_at).toLocaleDateString('en-US', {
     month: 'short',
@@ -20,12 +23,24 @@ export function GlanceCard({ note, onClick }: GlanceCardProps) {
   return (
     <div
       onClick={onClick}
-      className="group relative bg-glass rounded-2xl p-4 border border-ocean-700/30 hover:border-ocean-500/50 transition-all duration-300 cursor-pointer overflow-hidden"
+      className={`group relative bg-glass rounded-2xl p-4 border transition-all duration-300 cursor-pointer overflow-hidden ${isMarked
+          ? 'border-cyan-500/40 hover:border-cyan-500/60'
+          : 'border-ocean-700/30 hover:border-ocean-500/50'
+        }`}
     >
       {/* Diagonal gradient accent on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
         <div className="absolute -inset-1 bg-gradient-to-br from-cyan-500/10 via-transparent to-amber-500/10 rounded-2xl blur-sm" />
       </div>
+
+      {/* Pin toggle button */}
+      {onPinToggle && (
+        <PinToggleButton
+          noteId={note.note_id}
+          isMarked={isMarked}
+          onToggle={onPinToggle}
+        />
+      )}
 
       {/* Left accent border */}
       <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-gradient-to-b from-cyan-500/50 to-amber-500/50 rounded-full opacity-60 group-hover:opacity-100 group-hover:w-1 transition-all duration-300" />

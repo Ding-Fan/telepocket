@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { NoteDetail, NoteCategory } from '@/constants/categories';
-import { CATEGORY_EMOJI, CATEGORY_LABELS, ALL_CATEGORIES } from '@/constants/categories';
+import { NoteDetail, NoteCategory, CATEGORY_EMOJI, CATEGORY_LABELS, ALL_CATEGORIES } from '@telepocket/shared';
 import { confirmNoteCategory, archiveNote } from '@/actions/notes';
 import { useRouter } from 'next/navigation';
+import { CopyNoteButton } from '@/components/ui/CopyNoteButton';
+import { useToast } from '@/components/ui/ToastProvider';
 
 interface NoteDetailProps {
   note: NoteDetail;
@@ -13,10 +14,10 @@ interface NoteDetailProps {
 
 export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [confirmedCategories, setConfirmedCategories] = useState<NoteCategory[]>(note.confirmed_categories);
   const [isArchiving, setIsArchiving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Format dates
   const createdDate = new Date(note.created_at).toLocaleDateString('en-US', {
@@ -51,11 +52,9 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
       if (result.success) {
         // Update local state optimistically
         setConfirmedCategories([...confirmedCategories, category]);
-        setMessage({ type: 'success', text: `✅ Tagged as ${CATEGORY_EMOJI[category]} ${CATEGORY_LABELS[category]}` });
-        setTimeout(() => setMessage(null), 3000);
+        showToast(`✅ Tagged as ${CATEGORY_EMOJI[category]} ${CATEGORY_LABELS[category]}`, 'success');
       } else {
-        setMessage({ type: 'error', text: `❌ Failed to tag category: ${result.error}` });
-        setTimeout(() => setMessage(null), 3000);
+        showToast(`❌ Failed to tag category: ${result.error}`, 'error');
       }
     });
   };
@@ -73,8 +72,7 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
       // Navigate back to home
       router.push('/');
     } else {
-      setMessage({ type: 'error', text: `❌ Failed to archive: ${result.error}` });
-      setTimeout(() => setMessage(null), 3000);
+      showToast(`❌ Failed to archive: ${result.error}`, 'error');
       setIsArchiving(false);
     }
   };
@@ -82,19 +80,6 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
   return (
     <div className="min-h-screen bg-ocean-950 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Message Toast */}
-        {message && (
-          <div
-            className={`mb-4 p-4 rounded-xl border animate-fade-in ${
-              message.type === 'success'
-                ? 'bg-green-500/10 border-green-500/30 text-green-200'
-                : 'bg-red-500/10 border-red-500/30 text-red-200'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
         {/* Action Buttons Row */}
         <div className="mb-6 flex items-center justify-between gap-4">
           {/* Back Button */}
@@ -120,15 +105,21 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
             </button>
           )}
 
-          {/* Archive Button */}
-          <button
-            onClick={handleArchive}
-            disabled={isArchiving}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 hover:bg-amber-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="text-lg">📦</span>
-            <span className="font-medium">{isArchiving ? 'Archiving...' : 'Archive'}</span>
-          </button>
+          {/* Action Buttons Group */}
+          <div className="flex items-center gap-3">
+            {/* Copy Button */}
+            <CopyNoteButton note={note} variant="default" />
+
+            {/* Archive Button */}
+            <button
+              onClick={handleArchive}
+              disabled={isArchiving}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 hover:bg-amber-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="text-lg">📦</span>
+              <span className="font-medium">{isArchiving ? 'Archiving...' : 'Archive'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Main Card */}

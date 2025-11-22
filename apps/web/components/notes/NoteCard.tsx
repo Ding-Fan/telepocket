@@ -1,11 +1,11 @@
 'use client';
 
-import { NoteCategory, CATEGORY_EMOJI, CATEGORY_LABELS } from '@/constants/categories';
+import { NoteDetail, CATEGORY_EMOJI, CATEGORY_LABELS } from '@telepocket/shared';
 import { useRouter } from 'next/navigation';
 
 interface NoteCardProps {
   noteId: string;
-  category: NoteCategory;
+  category: NoteDetail['category']; // Adjusted to use the category type from NoteDetail
   content: string;
   createdAt: string;
   linkCount: number;

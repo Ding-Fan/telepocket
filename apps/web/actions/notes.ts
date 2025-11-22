@@ -1,8 +1,7 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { createServerClient as createClient, NoteCategory } from '@telepocket/shared';
 import { revalidatePath } from 'next/cache';
-import { NoteCategory } from '@/constants/categories';
 
 /**
  * Confirm a category for a note (sets user_confirmed = true)
@@ -68,6 +67,56 @@ export async function archiveNote(
     return { success: true };
   } catch (error) {
     console.error('Unexpected error archiving note:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Toggle note pin status (toggles is_marked)
+ */
+export async function toggleNotePin(
+  noteId: string,
+  userId: number
+): Promise<{ success: boolean; isMarked?: boolean; error?: string }> {
+  try {
+    const supabase = createClient();
+
+    // Get current is_marked status
+    const { data: currentNote, error: fetchError } = await supabase
+      .from('z_notes')
+      .select('is_marked')
+      .eq('id', noteId)
+      .eq('telegram_user_id', userId)
+      .single();
+
+    if (fetchError || !currentNote) {
+      console.error('Failed to fetch note for pin toggle:', fetchError);
+      return { success: false, error: 'Note not found or unauthorized' };
+    }
+
+    // Toggle the is_marked status
+    const newStatus = !currentNote.is_marked;
+
+    const { error } = await supabase
+      .from('z_notes')
+      .update({ is_marked: newStatus })
+      .eq('id', noteId)
+      .eq('telegram_user_id', userId);
+
+    if (error) {
+      console.error('Failed to toggle note pin:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Revalidate the home page (glance view)
+    revalidatePath('/');
+
+    return { success: true, isMarked: newStatus };
+  } catch (error) {
+    console.error('Unexpected error toggling note pin:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

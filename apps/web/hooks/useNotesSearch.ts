@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { NoteCategory } from '@/constants/categories';
+import { createBrowserClient as createClient } from '@telepocket/shared';
 import { searchNotesHybrid } from '@/actions/notes';
 import { HybridSearchResult } from '@telepocket/shared';
 
@@ -73,7 +73,7 @@ export function useNotesSearch({
 
       if (searchError) {
         console.error('Search failed:', searchError);
-        setError(`Search failed: ${searchError}`);
+        setError(`Search failed: ${searchError} `);
         setResults([]);
         return;
       }

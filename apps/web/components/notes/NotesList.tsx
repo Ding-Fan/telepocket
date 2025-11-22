@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { NoteCard } from './NoteCard';
 import { useNotesList } from '@/hooks/useNotesList';
-import { NoteCategory } from '@/constants/categories';
+import { NoteDetail, NoteCategory } from '@telepocket/shared';
 
 interface NotesListProps {
   userId: number;

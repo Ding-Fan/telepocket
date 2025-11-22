@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { NoteCategory } from '@/constants/categories';
+import { createBrowserClient as createClient } from '@telepocket/shared';
+import { NoteDetail, NoteCategory } from '@telepocket/shared';
 
 interface Note {
   note_id: string;

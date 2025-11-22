@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGlanceData } from '@/hooks/useGlanceData';
 import { GlanceCard } from './GlanceCard';
-import { ALL_CATEGORIES, CATEGORY_EMOJI, CATEGORY_LABELS, type NoteCategory, type GlanceNote } from '@/constants/categories';
+import { toggleNotePin } from '@/actions/notes';
+import { ALL_CATEGORIES, CATEGORY_EMOJI, CATEGORY_LABELS, type NoteCategory, type GlanceNote } from '@telepocket/shared';
 
 interface GlanceSectionProps {
   userId: number;
@@ -13,17 +14,23 @@ interface GlanceSectionProps {
 
 export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
   const router = useRouter();
-  const { notes, loading, error } = useGlanceData(userId);
+  const { priorityNotes, categoryNotes, loading, error } = useGlanceData(userId);
 
-  // Group notes by category
+  // Group category notes by category
   const notesByCategory = useMemo(() => {
-    return notes.reduce((map, note) => {
-      const categoryNotes = map.get(note.category) || [];
-      categoryNotes.push(note);
-      map.set(note.category, categoryNotes);
+    return categoryNotes.reduce((map, note) => {
+      const catNotes = map.get(note.category) || [];
+      catNotes.push(note);
+      map.set(note.category, catNotes);
       return map;
     }, new Map<NoteCategory, GlanceNote[]>());
-  }, [notes]);
+  }, [categoryNotes]);
+
+  // Pin toggle handler
+  const handlePinToggle = async (noteId: string) => {
+    await toggleNotePin(noteId, userId);
+    // Hook will automatically refetch due to revalidation
+  };
 
   // Loading state
   if (loading) {
@@ -71,6 +78,34 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
         </button>
       </div>
 
+      {/* Priority Section */}
+      {priorityNotes.length > 0 && (
+        <div className="animate-slide-up" style={{ animationDelay: '0ms' }}>
+          {/* Priority Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">📌</span>
+            <h3 className="text-xl font-bold text-white font-display">Priority Notes</h3>
+            <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/50 via-cyan-500/20 to-transparent" />
+            <span className="text-cyan-400 text-sm font-medium">
+              {priorityNotes.length} {priorityNotes.length === 1 ? 'note' : 'notes'}
+            </span>
+          </div>
+
+          {/* Priority Notes Grid */}
+          <div className="grid md:grid-cols-3 gap-4 mb-8">
+            {priorityNotes.map((note) => (
+              <GlanceCard
+                key={note.note_id}
+                note={note}
+                onClick={() => onNoteClick?.(note.note_id)}
+                isMarked={note.is_marked}
+                onPinToggle={() => handlePinToggle(note.note_id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Categories Grid */}
       <div className="grid gap-6">
         {ALL_CATEGORIES.map((category, index) => {
@@ -104,6 +139,8 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
                       key={note.note_id}
                       note={note}
                       onClick={() => onNoteClick?.(note.note_id)}
+                      isMarked={note.is_marked || false}
+                      onPinToggle={() => handlePinToggle(note.note_id)}
                     />
                   ))}
                 </div>

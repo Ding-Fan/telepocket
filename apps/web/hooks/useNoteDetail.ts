@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { NoteDetail, NoteLink, NoteImage } from '@/constants/categories';
+import { createBrowserClient as createClient } from '@telepocket/shared';
+import { NoteDetail } from '@telepocket/shared';
 
 interface UseNoteDetailReturn {
   note: NoteDetail | null;
@@ -41,7 +41,7 @@ export function useNoteDetail(noteId: string, userId?: number): UseNoteDetailRet
           console.error('Failed to fetch note detail:', rpcError);
           console.error('RPC Error details:', JSON.stringify(rpcError, null, 2));
           console.error('Note ID:', noteId, 'User ID:', userId);
-          setError(`Unable to load note: ${rpcError.message || 'Unknown error'}`);
+          setError(`Unable to load note: ${rpcError.message || 'Unknown error'} `);
           setNote(null);
           return;
         }
