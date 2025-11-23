@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **CRITICAL: When deploying, ALWAYS deploy BOTH apps (bot + web)**
 
 This is a Turborepo monorepo with two production apps:
-- `telepocket` - Telegram bot (apps/bot)
+- `telepocket-bot` - Telegram bot (apps/bot)
 - `telepocket-web` - Next.js web app (apps/web)
 
 **Supabase migrations location**: `packages/shared/supabase/migrations/`
@@ -38,20 +38,44 @@ This is a Turborepo monorepo with two production apps:
 4. Verify schema changes: `supabase db diff`
 
 **Deployment workflow when user says "deploy":**
-1. Build entire monorepo: `pnpm build` (from root)
-2. Deploy bot: `pm2 stop telepocket && pm2 start apps/bot/ecosystem.config.js`
-3. Deploy web: `pm2 stop telepocket-web && pm2 start apps/web/ecosystem.config.js`
-4. Save: `pm2 save`
-5. Verify both apps: `pm2 logs --lines 30 --nostream`
+
+```bash
+# 1. Build entire monorepo (from root)
+pnpm build
+
+# 2. Stop both apps
+pm2 stop telepocket-bot telepocket-web
+
+# 3. Delete old processes (ensures fresh config)
+pm2 delete telepocket-bot telepocket-web
+
+# 4. Start both apps using ecosystem config
+pm2 start ~/pm2-manager/ecosystem.config.js --only telepocket-bot,telepocket-web
+
+# 5. Save PM2 state
+pm2 save
+
+# 6. Verify deployment
+pm2 logs --lines 30 --nostream
+pm2 list
+```
 
 **Why deploy both:**
 - They share the `@telepocket/shared` package
 - Schema changes affect both apps
 - Ensures consistency across the entire system
 
-**PM2 Process Names:**
-- Bot: `telepocket`
-- Web: `telepocket-web`
+**PM2 Configuration:**
+- Global PM2 config: `~/pm2-manager/ecosystem.config.js`
+- Bot process name: `telepocket-bot`
+- Web process name: `telepocket-web`
+- Bot runs from: `/Users/ding/Github/telepocket/apps/bot/dist/index.js`
+- Web runs on port: `3013`
+
+**Important PM2 Notes:**
+- **ALWAYS use stop → delete → start** pattern for code changes
+- **NEVER use `pm2 restart`** for deployments (may not pick up new code)
+- Ecosystem config provides: env files, log paths, memory limits, restart policies
 
 ## Architecture Overview
 
