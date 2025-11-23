@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { DebugConsole } from "@/components/DebugConsole";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -38,9 +39,11 @@ export default function RootLayout({
       </head>
       <body className={`${plusJakarta.variable} ${outfit.variable}`}>
         <DebugConsole />
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <QueryProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </QueryProvider>
       </body>
     </html>
   );
