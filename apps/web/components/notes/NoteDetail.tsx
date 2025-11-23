@@ -12,6 +12,33 @@ interface NoteDetailProps {
   onBack?: () => void;
 }
 
+// Utility function to detect and linkify URLs in text
+function linkifyContent(text: string) {
+  // URL detection regex pattern
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+
+  const parts = text.split(urlPattern);
+
+  return parts.map((part, index) => {
+    // If this part matches a URL pattern, make it a link
+    if (part.match(urlPattern)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-300 transition-colors"
+        >
+          {part}
+        </a>
+      );
+    }
+    // Otherwise, return the text as-is
+    return part;
+  });
+}
+
 export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -69,8 +96,8 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
     const result = await archiveNote(note.note_id, note.telegram_user_id);
 
     if (result.success) {
-      // Navigate back to home
-      router.push('/');
+      // Navigate back to previous page
+      router.back();
     } else {
       showToast(`❌ Failed to archive: ${result.error}`, 'error');
       setIsArchiving(false);
@@ -157,9 +184,9 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
           {/* Content Section */}
           <div className="p-8">
             <div className="prose prose-invert prose-ocean max-w-none">
-              <p className="text-ocean-100 text-lg leading-relaxed whitespace-pre-wrap">
-                {note.content}
-              </p>
+              <div className="text-ocean-100 text-lg leading-relaxed whitespace-pre-wrap">
+                {linkifyContent(note.content)}
+              </div>
             </div>
           </div>
 

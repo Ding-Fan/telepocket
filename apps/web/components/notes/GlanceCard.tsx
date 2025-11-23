@@ -5,7 +5,7 @@ interface GlanceCardProps {
   note: GlanceNote | PriorityNote;
   onClick?: () => void;
   isMarked?: boolean;
-  onPinToggle?: () => Promise<void>;
+  onPinToggle?: () => void;
 }
 
 export function GlanceCard({ note, onClick, isMarked = false, onPinToggle }: GlanceCardProps) {

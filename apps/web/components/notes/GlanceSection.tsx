@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGlanceData } from '@/hooks/useGlanceData';
+import { usePinNoteMutation } from '@/hooks/usePinNoteMutation';
 import { GlanceCard } from './GlanceCard';
-import { toggleNotePin } from '@/actions/notes';
 import { ALL_CATEGORIES, CATEGORY_EMOJI, CATEGORY_LABELS, type NoteCategory, type GlanceNote } from '@telepocket/shared';
 
 interface GlanceSectionProps {
@@ -15,6 +15,7 @@ interface GlanceSectionProps {
 export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
   const router = useRouter();
   const { priorityNotes, categoryNotes, loading, error } = useGlanceData(userId);
+  const pinNoteMutation = usePinNoteMutation();
 
   // Group category notes by category
   const notesByCategory = useMemo(() => {
@@ -26,10 +27,9 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
     }, new Map<NoteCategory, GlanceNote[]>());
   }, [categoryNotes]);
 
-  // Pin toggle handler
+  // Pin toggle handler with optimistic updates
   const handlePinToggle = async (noteId: string) => {
-    await toggleNotePin(noteId, userId);
-    // Hook will automatically refetch due to revalidation
+    pinNoteMutation.mutate({ noteId, userId });
   };
 
   // Loading state

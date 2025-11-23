@@ -43,10 +43,10 @@ export default function NotePage({ params }: NotePageProps) {
             <p className="text-ocean-100 font-semibold mb-2">Unable to load note</p>
             <p className="text-ocean-400 text-sm mb-4">{error || 'Note not found'}</p>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.back()}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-amber-500/20 border border-cyan-500/30 text-ocean-100 font-medium hover:from-cyan-500/30 hover:to-amber-500/30 transition-all duration-200"
             >
-              Back to Home
+              Go Back
             </button>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function NotePage({ params }: NotePageProps) {
     <AppLayout>
       <NoteDetailComponent
         note={note}
-        onBack={() => router.push('/')}
+        onBack={() => router.back()}
       />
     </AppLayout>
   );
