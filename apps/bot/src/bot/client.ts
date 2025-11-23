@@ -1032,9 +1032,7 @@ export class TelegramClient {
 
       // Determine back button label based on return path
       let backButtonLabel = '⬅️ Back';
-      if (returnPath.includes('/glance')) {
-        backButtonLabel = '← Glance';
-      } else if (returnPath.includes('/suggest')) {
+      if (returnPath.includes('/suggest')) {
         backButtonLabel = '← Suggest';
       }
 
@@ -1521,10 +1519,6 @@ export class TelegramClient {
    */
   getViewFunctions() {
     return {
-      showGlanceView: async (ctx: any, userId: number) => {
-        const { showGlanceView } = await import('./views/glance');
-        return showGlanceView(ctx, userId);
-      },
       showNotesPage: this.showNotesPage.bind(this),
       showNotesByCategory: this.showNotesByCategory.bind(this),
       showNoteSearchResults: this.showNoteSearchResults.bind(this),

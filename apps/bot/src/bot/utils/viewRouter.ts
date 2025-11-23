@@ -6,7 +6,6 @@
  * navigation stateless and self-documenting.
  *
  * Path Format Examples:
- * - /glance/                           -> Glance view
  * - /notes/1                           -> Notes page 1
  * - /category/tech/2                   -> Tech category page 2
  * - /search/keyword/3                  -> Search results page 3
@@ -41,10 +40,6 @@ export async function navigateToPath(
 
   try {
     switch (viewType) {
-      case 'glance':
-        await viewFunctions.showGlanceView(ctx, userId);
-        break;
-
       case 'notes':
         const notesPage = parts[1] ? parseInt(parts[1]) : 1;
         if (isNaN(notesPage) || notesPage < 1) {
@@ -142,7 +137,6 @@ export function buildPath(viewType: string, ...params: (string | number)[]): str
  * This ensures type safety when routing
  */
 export interface ViewFunctions {
-  showGlanceView: (ctx: any, userId: number) => Promise<void>;
   showNotesPage: (ctx: any, userId: number, page: number) => Promise<void>;
   showNotesByCategory: (ctx: any, userId: number, category: string, page: number) => Promise<void>;
   showNoteSearchResults: (ctx: any, userId: number, keyword: string, page: number) => Promise<void>;
