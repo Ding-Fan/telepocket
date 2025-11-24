@@ -12,9 +12,39 @@ import { dbOps } from '../database/operations';
 import { CATEGORY_EMOJI, CATEGORY_LABELS } from '../constants/noteCategories';
 import { config } from '../config/environment';
 import { StatusMessageManager } from '../utils/statusMessageManager';
+import { TagClassifier, AutoTagService, createServerClient } from '@telepocket/shared';
 
-// Initialize classifier
+// Initialize classifiers
 const noteClassifier = new NoteClassifier();
+
+// Initialize tag classifier and auto-tag service
+let tagClassifier: TagClassifier | null = null;
+let autoTagService: AutoTagService | null = null;
+
+// Lazy initialization of tag services
+function getTagServices() {
+  if (!tagClassifier || !autoTagService) {
+    const provider = config.llm.provider;
+
+    tagClassifier = new TagClassifier({
+      provider,
+      gemini: provider === 'gemini' ? {
+        apiKey: config.gemini.apiKey,
+        model: config.gemini.model
+      } : undefined,
+      openrouter: provider === 'openrouter' ? {
+        apiKey: config.openrouter.apiKey,
+        model: config.openrouter.model,
+        fallbackToGemini: config.openrouter.fallbackToGemini
+      } : undefined
+    });
+
+    const supabase = createServerClient();
+    autoTagService = new AutoTagService(tagClassifier, supabase);
+  }
+
+  return { tagClassifier, autoTagService };
+}
 
 /**
  * Handles /note command - saves notes with optional links
@@ -195,11 +225,11 @@ async function processNoteMessage(ctx: Context, messageText: string): Promise<vo
         // Complete status with final message
         const completion = await status.complete(successMessage, { parse_mode: 'MarkdownV2' });
 
-        // Trigger async classification (non-blocking)
+        // Trigger async auto-tagging (non-blocking) - NEW TAG SYSTEM
         if (result.noteId && hasClassification && completion.messageId) {
-          // Classification happens asynchronously without blocking user
-          classifyNoteAsync(ctx, result.noteId, completion.messageId, messageText, urls, successMessage)
-            .catch(err => console.error('Async classification error:', err));
+          const userId = ctx.message!.from!.id;
+          autoTagNoteAsync(ctx, result.noteId, completion.messageId, messageText, urls, successMessage, userId)
+            .catch(err => console.error('Async auto-tagging error:', err));
         }
 
         // Trigger async embedding (non-blocking)
@@ -221,11 +251,11 @@ async function processNoteMessage(ctx: Context, messageText: string): Promise<vo
         // Complete status with final message
         const completion = await status.complete(successMessage, { parse_mode: 'MarkdownV2' });
 
-        // Trigger async classification (non-blocking)
+        // Trigger async auto-tagging (non-blocking) - NEW TAG SYSTEM
         if (result.noteId && hasClassification && completion.messageId) {
-          // Classification happens asynchronously without blocking user
-          classifyNoteAsync(ctx, result.noteId, completion.messageId, messageText, [], successMessage)
-            .catch(err => console.error('Async classification error:', err));
+          const userId = ctx.message!.from!.id;
+          autoTagNoteAsync(ctx, result.noteId, completion.messageId, messageText, [], successMessage, userId)
+            .catch(err => console.error('Async auto-tagging error:', err));
         }
 
         // Trigger async embedding (non-blocking)
@@ -424,6 +454,102 @@ async function classifyNoteAsync(
     }
   } catch (error) {
     console.error('Error in async classification:', error);
+    // Fail silently - user still has their note saved
+  }
+}
+
+/**
+ * Async function to auto-tag note using the new unified tag system
+ * Runs in background after note is saved
+ * Replaces the old category classification system
+ */
+async function autoTagNoteAsync(
+  ctx: Context,
+  noteId: string,
+  messageId: number,
+  noteContent: string,
+  urls: string[],
+  existingMessage: string,
+  userId: number
+): Promise<void> {
+  try {
+    // Skip if classification is disabled
+    if (!config.llm.classificationEnabled) {
+      return;
+    }
+
+    const { autoTagService } = getTagServices();
+    if (!autoTagService) {
+      console.error('AutoTagService not initialized');
+      return;
+    }
+
+    // 1. Ensure user has starter tags (creates 6 default tags if user has none)
+    const tagsCreated = await autoTagService.ensureUserStarterTags(userId);
+    if (tagsCreated > 0) {
+      console.log(`[AutoTag] Created ${tagsCreated} starter tags for user ${userId}`);
+      // Update starter tags with emojis and prompts
+      await autoTagService.updateStarterTagsPrompts(userId);
+      console.log(`[AutoTag] Updated starter tag prompts for user ${userId}`);
+    }
+
+    // 2. Auto-tag the note
+    const result = await autoTagService.autoTagNote(noteId, noteContent, userId, urls);
+
+    // If no tags were applied, skip
+    if (result.autoConfirmed.length === 0 && result.suggested.length === 0) {
+      return;
+    }
+
+    // 3. Build updated message with auto-confirmed tags
+    let updatedMessage = existingMessage;
+
+    if (result.autoConfirmed.length > 0) {
+      const tagLabels = result.autoConfirmed
+        .map(t => t.tag_name)
+        .join(', ');
+      updatedMessage += `\n\n🏷️ *Auto\\-tagged:* ${escapeMarkdownV2(tagLabels)}`;
+    }
+
+    // 4. If there are suggested tags, build inline keyboard (similar to category buttons)
+    if (result.suggested.length > 0) {
+      const keyboard = new InlineKeyboard();
+
+      result.suggested.forEach((tagScore, index) => {
+        const callbackData = `tag:${noteId}:${tagScore.tag_id}:${tagScore.score}`;
+        keyboard.text(`🏷️ ${tagScore.tag_name}`, callbackData);
+
+        // Add row break after every 2 buttons
+        if ((index + 1) % 2 === 0 && index < result.suggested.length - 1) {
+          keyboard.row();
+        }
+      });
+
+      // Edit message with updated text and tag suggestion buttons
+      await ctx.api.editMessageText(
+        ctx.chat!.id,
+        messageId,
+        updatedMessage,
+        {
+          parse_mode: 'MarkdownV2',
+          reply_markup: keyboard
+        }
+      );
+    } else if (result.autoConfirmed.length > 0) {
+      // Only auto-confirmed tags, no buttons - just update message text
+      await ctx.api.editMessageText(
+        ctx.chat!.id,
+        messageId,
+        updatedMessage,
+        {
+          parse_mode: 'MarkdownV2'
+        }
+      );
+    }
+
+    console.log(`[AutoTag] Note ${noteId}: ${result.autoConfirmed.length} auto-confirmed, ${result.suggested.length} suggested`);
+  } catch (error) {
+    console.error('Error in async auto-tagging:', error);
     // Fail silently - user still has their note saved
   }
 }

@@ -2,6 +2,8 @@ import { Composer } from 'grammy';
 import { config } from '../../config/environment';
 import { escapeMarkdownV2 } from '../../utils/linkFormatter';
 import { createMainKeyboard } from '../utils/keyboards';
+import { initializeStarterTags } from '@telepocket/shared';
+import { db } from '../../database/connection';
 
 export const startCommand = new Composer();
 
@@ -15,6 +17,12 @@ startCommand.command('start', async (ctx) => {
     await ctx.reply('🚫 Unauthorized access. This bot is private.');
     return;
   }
+
+  // Initialize starter tags for the user (idempotent - safe to call multiple times)
+  initializeStarterTags(userId, db.getClient()).catch(err => {
+    console.error('Failed to initialize starter tags:', err);
+    // Don't block the welcome message if tag initialization fails
+  });
 
   const welcomeMessage = `🎉 Welcome back, my master! 👑
 
