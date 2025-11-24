@@ -1,12 +1,86 @@
 # Unified Tag System Specification
 
+**Status**: 🚧 In Progress - Phase 1 Complete, Phase 3 UI Complete
+
+**Last Updated**: 2024-11-24
+
 ## Problem & Solution
 
 **Problem**: Current category system uses hardcoded categories with fixed prompts. Users cannot create custom organizational tags for personal use cases (work, urgent, projects, etc.). System treats "categories" as a special concept when they're fundamentally just predefined tags.
 
-**Solution**: Unified tag system where both system-defined tags (todo, idea, blog, etc.) and user-defined tags (work, urgent, project-alpha, etc.) share the same infrastructure → LLM can classify ANY tag dynamically using flexible prompts → Same metadata structure (confidence, user_confirmed) for all tags → Gradual migration from categories to tags without breaking changes.
+**Solution**: Unified tag system where ALL tags are user-owned (no system/custom distinction) → LLM can classify ANY tag using custom score prompts → Same metadata structure (confidence, user_confirmed) for all tags → Gradual migration from categories to tags without breaking changes.
 
-**Returns**: Flexible tagging system with AI auto-suggestion for both predefined and custom tags, user control over tag creation, unified architecture, smooth migration path.
+**Returns**: Flexible tagging system with AI auto-suggestion for custom tags, user control over tag creation, unified architecture, smooth migration path.
+
+**Key Change from Original Design**: Eliminated `is_system_tag` distinction. All tags are now user-owned, with 6 starter tags automatically created on first `/start` command.
+
+**Important Design Update**: Added `is_ai_enabled` boolean field to separate "has AI prompt" from "AI is active". This allows starter tags to have pre-populated prompts while AI remains disabled by default (user opt-in).
+
+## Implementation Status
+
+### ✅ Completed (2024-11-24)
+
+**Phase 1: Database Foundation**
+- ✅ Migration: `20251124123352_create_unified_tag_system_v2.sql`
+- ✅ Tables: `z_tags`, `z_note_tags` with proper indexes
+- ✅ Tag initialization function: `ensure_user_starter_tags(user_id)`
+- ✅ Starter tags auto-created on `/start` command: todo, idea, blog, youtube, reference, japanese
+- ✅ Bot integration: `/start` command calls `initializeStarterTags()`
+- ✅ Tag name validation: Regex pattern `^[a-z0-9][a-z0-9_-]{0,28}[a-z0-9]$`
+- ✅ Soft delete support: `is_archived` column
+- ✅ RLS policies: Service role + public access (for bot operations)
+
+**Phase 3: UI Implementation**
+- ✅ Tags page: `/apps/web/app/tags/page.tsx`
+- ✅ Server actions: `apps/web/actions/tags.ts`
+  - `getUserTags()` - Fetch user's tags
+  - `createTag()` - Create new tag with validation
+  - `updateTag()` - Update existing tag
+  - `archiveTag()` - Soft delete
+  - `addTagToNote()` / `removeTagFromNote()` - Tag management
+  - `confirmNoteTag()` - Confirm AI suggestions
+- ✅ Components:
+  - `TagList` - Display all tags with filter (All/AI/Manual)
+  - `TagCard` - Individual tag display with edit/delete
+  - `CreateTagModal` - Create new tag with AI config
+  - `EditTagModal` - Edit existing tag
+  - `CreateTagButton` - Trigger create modal
+- ✅ UI polish: Modern design with improved typography, spacing, colors
+- ✅ TypeScript types: `Tag`, `CreateTagInput`, `UpdateTagInput` in `@telepocket/shared`
+
+### 🚧 In Progress
+
+**Phase 2: Auto-Tagging Integration**
+- ⏳ AutoTagService integration into bot note save flow
+- ⏳ Background tagging with score_prompt field
+- ⏳ Dual-write to both z_note_categories and z_note_tags
+
+### 📋 Not Started
+
+**Phase 2: Auto-Tagging (continued)**
+- 🚧 Update starter tags with emojis and score_prompts (in progress)
+- ❌ TagClassifier service using score_prompt field
+- ❌ Web: Show tags in note detail view
+
+**Phase 4: Tag Discovery & Search**
+- ❌ Tag filter in notes list
+- ❌ Tag autocomplete
+- ❌ Popular tags widget
+
+**Phase 5: Migration**
+- ❌ Background migration job
+- ❌ Switch reads to z_note_tags
+- ❌ Deprecate z_note_categories
+
+### 🔄 Deviations from Original Design
+
+1. **No is_system_tag field** - All tags are user-owned
+2. **score_prompt instead of description** - Direct LLM prompt storage
+3. **Starter tags per-user** - Created via `ensure_user_starter_tags()` not seeded globally
+4. **No tag limits enforced yet** - Soft/hard limits (20/30) not implemented
+5. **No similar tag detection** - pg_trgm similarity check not implemented
+6. **Simplified RLS** - Public + service_role policies (no user-specific RLS)
+7. **Added is_ai_enabled field** - Separates "has prompt" from "AI active" (allows pre-populated prompts with AI disabled by default)
 
 ## Design Decisions
 
@@ -171,43 +245,40 @@ export async function archiveTag(tagId: string, userId: number) {
 }
 ```
 
-### Database Schema
+### Database Schema (Actual Implementation)
 
 ```sql
--- Enable pg_trgm extension for similar tag detection
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
--- Tag definitions (system + user-created)
+-- Tag definitions (all user-owned)
 CREATE TABLE z_tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tag_name TEXT UNIQUE NOT NULL
-    CHECK (tag_name ~ '^[a-z0-9][a-z0-9_-]{0,28}[a-z0-9]$'),  -- Lowercase, alphanumeric + hyphens/underscores, 2-30 chars
 
-  -- Display metadata
-  emoji TEXT CHECK (char_length(emoji) <= 10),  -- '📋' for system tags, NULL or user-chosen for custom
-  label TEXT CHECK (char_length(label) <= 50),  -- 'Todo' for system tags, capitalized tag_name for custom
-  description TEXT CHECK (char_length(description) <= 500),  -- Optional: helps LLM classify better
+  -- Core fields
+  tag_name TEXT NOT NULL CHECK (tag_name ~ '^[a-z0-9][a-z0-9_-]{0,28}[a-z0-9]$'),
+  emoji TEXT CHECK (char_length(emoji) <= 10),
+  score_prompt TEXT,  -- AI prompt text (can exist even if AI disabled)
+  is_ai_enabled BOOLEAN DEFAULT FALSE NOT NULL,  -- Whether AI classification is active
 
-  -- Tag type and ownership
-  is_system_tag BOOLEAN DEFAULT FALSE,
-  created_by BIGINT,  -- telegram_user_id, NULL for system tags
-  is_archived BOOLEAN DEFAULT FALSE,  -- Soft delete
+  -- Ownership (every tag has an owner)
+  created_by BIGINT NOT NULL,  -- telegram_user_id
 
-  -- LLM auto-classification settings
-  llm_enabled BOOLEAN DEFAULT TRUE,
+  -- Soft delete
+  is_archived BOOLEAN DEFAULT FALSE NOT NULL,
+
+  -- AI classification thresholds
   auto_confirm_threshold INT DEFAULT 95 CHECK (auto_confirm_threshold BETWEEN 60 AND 100),
   suggest_threshold INT DEFAULT 60 CHECK (suggest_threshold BETWEEN 0 AND 99),
 
   -- Usage analytics
-  usage_count INT DEFAULT 0,
+  usage_count INT DEFAULT 0 NOT NULL,
   last_used_at TIMESTAMPTZ,
 
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
 
   -- Constraints
-  CHECK (is_system_tag = TRUE OR created_by IS NOT NULL),  -- Custom tags must have owner
-  CHECK (auto_confirm_threshold > suggest_threshold)  -- Auto-confirm must be higher than suggest
+  CHECK (auto_confirm_threshold > suggest_threshold),
+  UNIQUE(created_by, tag_name)  -- User can't have duplicate tag names
 );
 
 -- Note-to-tag relationships (replaces z_note_categories)
@@ -723,33 +794,39 @@ Existing user has 1,000 notes with categories (todo, idea, etc.). System automat
 
 ## MVP Scope
 
-**Phase 1: Foundation (Week 1-2)**
-- [ ] Database schema: z_tags, z_note_tags with constraints
-- [ ] Database: Tag limit enforcement trigger (soft 20, hard 30)
-- [ ] Database: Similar tag detection function (pg_trgm)
-- [ ] Database: Soft delete support (is_archived column)
-- [ ] Database: Tag name validation (lowercase, alphanumeric + hyphens/underscores, 2-30 chars)
-- [ ] Migration: Seed 6 system tags
-- [ ] Migration: Enable pg_trgm extension
-- [ ] TagClassifier: Dynamic tag scoring (packages/shared)
-- [ ] AutoTagService: Auto-tagging with custom tags (packages/shared)
-- [ ] Server actions: createTag, addTagToNote, removeTagFromNote, archiveTag
-- [ ] Update types in packages/shared (Tag, NoteTag, TagScore, CreateTagInput, TagLimitStatus)
-- [ ] Tag validation utilities in shared (validateTagName, checkSimilarTags)
+**Phase 1: Foundation (Week 1-2)** ✅ COMPLETE
+- [x] Database schema: z_tags, z_note_tags with constraints
+- [ ] Database: Tag limit enforcement trigger (soft 20, hard 30) - DEFERRED
+- [ ] Database: Similar tag detection function (pg_trgm) - DEFERRED
+- [x] Database: Soft delete support (is_archived column)
+- [x] Database: Tag name validation (lowercase, alphanumeric + hyphens/underscores, 2-30 chars)
+- [x] Migration: Auto-create 6 starter tags per user (via `ensure_user_starter_tags()`)
+- [ ] Migration: Enable pg_trgm extension - DEFERRED
+- [ ] TagClassifier: Dynamic tag scoring (packages/shared) - IN PROGRESS
+- [ ] AutoTagService: Auto-tagging with custom tags (packages/shared) - IN PROGRESS
+- [x] Server actions: createTag, addTagToNote, removeTagFromNote, archiveTag, updateTag, confirmTag
+- [x] Update types in packages/shared (Tag, CreateTagInput, UpdateTagInput)
+- [x] Tag initialization function: tagInitializer.ts (packages/shared)
+- [ ] Tag validation utilities in shared (validateTagName, checkSimilarTags) - DEFERRED
 
-**Phase 2: Auto-Tagging (Week 2-3)**
+**Phase 2: Auto-Tagging (Week 2-3)** 🚧 IN PROGRESS
 - [ ] Integrate AutoTagService into note save flow
 - [ ] Background tagging for new notes
 - [ ] Dual-write: Write to both z_note_categories AND z_note_tags
 - [ ] Bot: Auto-tag notes on Telegram message receive
 - [ ] Web: Show both categories and tags during transition
+- [ ] Update starter tags with score_prompts
 
-**Phase 3: Manual Tag Management (Week 3-4)**
-- [ ] UI: Tag creation modal in note detail page
-- [ ] UI: Tag selection (system + custom tags)
-- [ ] UI: Tag suggestions (score 60-94) with confirm/reject
-- [ ] UI: Tag removal
-- [ ] Server action: confirmTag (UPSERT pattern)
+**Phase 3: Manual Tag Management (Week 3-4)** ✅ COMPLETE (UI ahead of schedule)
+- [x] UI: Tags management page (/tags)
+- [x] UI: Tag creation modal with AI configuration
+- [x] UI: Tag edit modal
+- [x] UI: Tag list with filter (All/AI Tags/Manual Tags)
+- [x] UI: Tag card with edit/delete actions
+- [x] UI: Tag removal (archive functionality)
+- [x] Server action: confirmTag (UPSERT pattern)
+- [ ] UI: Tag selection in note detail page - PENDING
+- [ ] UI: Tag suggestions (score 60-94) with confirm/reject - PENDING
 
 **Phase 4: Tag Discovery & Search (Week 4-5)**
 - [ ] UI: Tag filter in notes list
@@ -986,13 +1063,28 @@ LIMIT 20;
 
 ---
 
-**Status**: 📋 Planned | **Target**: Q1 2025
+**Status**: 🚧 In Progress - Phase 1 Complete, Phase 3 UI Complete | **Started**: 2024-11-24
+
+**Deployed Components**:
+- ✅ Database: z_tags, z_note_tags tables with RLS
+- ✅ Migration: 20251124123352_create_unified_tag_system_v2.sql
+- ✅ Bot: Starter tag initialization on `/start`
+- ✅ Web: Tags page at `/tags` with CRUD operations
+- ✅ Web: Tag modals (Create/Edit) with modern UI design
+- ✅ Shared: Tag types and tagInitializer utility
+
+**Next Steps**:
+1. Update starter tags with emojis and score_prompts (in code, not migration)
+2. Integrate AutoTagService into bot's note save flow
+3. Show tags in note detail view
+4. Implement tag suggestions UI
+5. Begin dual-write to both systems
 
 **Dependencies**:
-- Current category system (z_note_categories)
-- LLM classification infrastructure
-- AutoClassifyService (packages/shared)
-- Web UI components (note detail page)
+- Current category system (z_note_categories) - still in use
+- LLM classification infrastructure - existing
+- AutoTagService (packages/shared) - needs score_prompt integration
+- Note detail page - needs tag UI components
 
 **Success Metrics**:
 - 80%+ users create at least 1 custom tag within first month
@@ -1001,20 +1093,38 @@ LIMIT 20;
 - Zero data loss during migration
 - <100ms tag query performance
 
-**Key Decisions**:
+**Key Decisions** (Updated):
 1. ✅ Tags are separate from categories (new tables z_tags, z_note_tags)
-2. ✅ LLM can classify custom tags dynamically (no hardcoded prompts needed)
+2. ✅ LLM can classify custom tags dynamically using score_prompt field
 3. ✅ Gradual migration (dual-write → switch reads → deprecate over 4 weeks)
-4. ✅ System tags remain predefined (can't be deleted or archived)
+4. 🔄 CHANGED: All tags are user-owned (no is_system_tag distinction)
 5. ✅ User tags are private (not shared between users in MVP)
-6. ✅ Tag limits: Soft limit 20 (warning), hard limit 30 (database enforced)
-7. ✅ Tag descriptions: Optional but recommended for better LLM classification
+6. ⏳ DEFERRED: Tag limits (soft 20, hard 30) - not enforced yet
+7. 🔄 CHANGED: score_prompt field instead of description
 8. ✅ Tag deletion: Soft delete (archived) preserves data integrity
 9. ✅ Tag validation: Lowercase alphanumeric + hyphens/underscores, 2-30 chars
-10. ✅ Duplicate detection: pg_trgm similarity warns about similar tag names
+10. ⏳ DEFERRED: Duplicate detection (pg_trgm similarity) - not implemented yet
+11. ✅ ADDED: is_ai_enabled field separates "has prompt" from "AI active" - allows starter tags to ship with prompts but AI disabled by default (user opt-in)
+
+**UI Design Improvements** (2024-11-24):
+- ✨ Modern modal design: Backdrop blur, rounded-xl corners, shadow-2xl
+- 📏 Better spacing: Increased padding (p-8), larger inputs (py-3)
+- 🎨 Improved contrast: Dark headers (text-gray-900), border-2 for inputs
+- 🔘 Larger tap targets: px-6 py-3 buttons, text-2xl emoji input
+- 📝 Readable textarea: Removed monospace font, added line-height
+- ✖️ Close button: Added X icon in modal header
+- 🔵 Better focus states: ring-2 focus rings, border-blue-500
+- 💡 Visual hierarchy: font-semibold labels, improved color tokens
+- 🎭 AI section highlight: bg-blue-50/30 with border-l-4
+- 📋 Concise placeholder: Simplified from verbose to "Rate 0-100 how well..."
 
 **References**:
 - [LLM Note Classification Spec](../../bot/.spec/llm-note-classification/spec.md)
 - [Auto-Classification & Embedding Spec](../../bot/.spec/auto-classification-embedding/spec.md)
 - [Tag System UX Best Practices](https://medium.com/geekculture/optimized-note-taking-9d663eec898c)
 - [Tag Database Design](https://www.geeksforgeeks.org/dbms/how-to-design-a-database-for-tagging-service/)
+
+---
+
+**Change Log**:
+- **2024-11-24**: Phase 1 database foundation complete, Phase 3 UI complete (ahead of schedule), UI design improvements deployed
