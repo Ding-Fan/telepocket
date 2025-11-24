@@ -127,10 +127,10 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
                 {categoryNotes.length > 0 && (
                   <button
                     onClick={() => router.push(`/notes?category=${category}`)}
-                    className="text-ocean-400 hover:text-cyan-400 text-sm font-medium transition-colors duration-200 flex items-center gap-1.5 group"
+                    className="text-ocean-400 hover:text-cyan-400 transition-colors duration-200 group"
+                    aria-label={`View all ${label} notes`}
                   >
-                    {categoryNotes.length} {categoryNotes.length === 1 ? 'note' : 'notes'}
-                    <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 group-hover:translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
