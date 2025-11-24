@@ -6,6 +6,7 @@ import { dbOps } from '../database/operations';
 import { noteOps } from '../database/noteOperations';
 import { db } from '../database/connection';
 import { escapeMarkdownV2, formatLinksForDisplay } from '../utils/linkFormatter';
+import { processNoteInBackground } from '../services/autoClassifyAdapter';
 
 export class MessageHandler {
   private bot: Bot;
@@ -113,6 +114,13 @@ export class MessageHandler {
           successMessage,
           { parse_mode: 'MarkdownV2' }
         );
+
+        // STEP 4.5: Background auto-classification and embedding generation
+        if (newResult.success && newResult.noteId) {
+          processNoteInBackground(newResult.noteId, messageText, urls).catch(err => {
+            console.error('Auto-classification failed:', err);
+          });
+        }
 
         // STEP 5: Background metadata fetch for uncached URLs
         const uncachedUrls = urls.filter(url => !cachedMetadata.has(url));
