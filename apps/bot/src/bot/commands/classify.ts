@@ -1,9 +1,32 @@
 import { Composer, InlineKeyboard } from 'grammy';
 import { config } from '../../config/environment';
 import { dbOps } from '../../database/operations';
-import { NoteClassifier } from '../../services/noteClassifier';
-import { CATEGORY_EMOJI, CATEGORY_LABELS, ALL_CATEGORIES } from '../../constants/noteCategories';
+import { CATEGORY_EMOJI, CATEGORY_LABELS, ALL_CATEGORIES, CategoryScore, NoteClassifier, NoteClassifierConfig, EmbeddingService } from '@telepocket/shared';
 import { createMainKeyboard } from '../utils/keyboards';
+import { db } from '../../database/connection';
+
+// Create classifier config from bot config
+function createClassifierConfig(): NoteClassifierConfig {
+  return {
+    provider: config.llm.provider,
+    classificationEnabled: config.llm.classificationEnabled,
+    japaneseCategoryEnabled: config.llm.japaneseCategoryEnabled,
+    autoConfirmThreshold: config.llm.autoConfirmThreshold,
+    showButtonThreshold: config.llm.showButtonThreshold,
+    gemini: {
+      apiKey: config.gemini.apiKey,
+      model: config.gemini.model
+    },
+    openrouter: {
+      apiKey: config.openrouter.apiKey,
+      model: config.openrouter.model,
+      fallbackToGemini: config.openrouter.fallbackToGemini
+    }
+  };
+}
+
+// Create embedding service instance
+const embeddingService = new EmbeddingService(config.gemini.apiKey);
 
 // Module-level state for pending classifications
 const pendingClassifications = new Map<string, { type: 'note' | 'link'; scores: any[]; itemData: any }>();
@@ -77,7 +100,7 @@ async function runBatchClassification(ctx: any, userId: number, batchSize: numbe
     shortKeyCounter = 0;
 
     // Create NoteClassifier instance
-    const noteClassifier = new NoteClassifier();
+    const noteClassifier = new NoteClassifier(createClassifierConfig());
 
     // 1. Fetch batch of unclassified items
     const [notes, links] = await Promise.all([
@@ -152,6 +175,13 @@ async function runBatchClassification(ctx: any, userId: number, batchSize: numbe
 
         if (wasAutoConfirmed) {
           autoConfirmedCount++;
+
+          // Generate and save embedding for notes (skip for links)
+          if (item.type === 'note') {
+            generateEmbeddingInBackground(item.data.id, item.data.content).catch(err => {
+              console.error(`Failed to generate embedding for note ${item.data.id}:`, err);
+            });
+          }
 
           // Show auto-confirmed item
           const itemPreview = item.type === 'note'
@@ -278,7 +308,16 @@ async function autoAssignPendingClassifications(ctx: any, userId: number): Promi
               false // userConfirmed = false (auto-assigned)
             );
 
-        if (success) assignedCount++;
+        if (success) {
+          assignedCount++;
+
+          // Generate embedding for notes (skip for links)
+          if (pending.type === 'note' && pending.itemData?.content) {
+            generateEmbeddingInBackground(itemId, pending.itemData.content).catch(err => {
+              console.error(`Failed to generate embedding for auto-assigned note ${itemId}:`, err);
+            });
+          }
+        }
       }
     }
 
@@ -382,6 +421,13 @@ export async function handleClassifyAssignClick(ctx: any, data: string): Promise
     // Remove from pending
     pendingClassifications.delete(itemId);
 
+    // Generate embedding for notes (skip for links)
+    if (type === 'note' && pending.itemData?.content) {
+      generateEmbeddingInBackground(itemId, pending.itemData.content).catch(err => {
+        console.error(`Failed to generate embedding for manually confirmed note ${itemId}:`, err);
+      });
+    }
+
     // Answer callback query (no visual feedback per user preference)
     await ctx.answerCallbackQuery();
 
@@ -407,4 +453,38 @@ export async function handleClassifyAssignClick(ctx: any, data: string): Promise
  */
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Generate and save embedding for a note in the background
+ * @param noteId - Note ID
+ * @param content - Note content
+ */
+async function generateEmbeddingInBackground(noteId: string, content: string): Promise<void> {
+  try {
+    // Skip trivial content
+    if (content.trim().length < 20) {
+      return;
+    }
+
+    // Generate embedding
+    const noteData = { content, links: [] };
+    const text = embeddingService.prepareNoteText(noteData);
+    const embedding = await embeddingService.generateEmbedding(text);
+
+    // Save to database
+    const { error } = await db.getClient()
+      .from('z_notes')
+      .update({ embedding: `[${embedding.join(',')}]` })
+      .eq('id', noteId);
+
+    if (error) {
+      console.error(`Failed to save embedding for note ${noteId}:`, error);
+    } else {
+      console.log(`[Classify] Generated embedding for note ${noteId} (${embedding.length} dims)`);
+    }
+  } catch (error) {
+    console.error(`Error generating embedding for note ${noteId}:`, error);
+    // Silent failure - classification still succeeded
+  }
 }
