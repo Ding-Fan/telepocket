@@ -989,9 +989,22 @@ noteClassifier.suggestCategories(content, urls)
 
 ---
 
-**Status**: ✅ Implemented | **Latest Update**: Switch to Gemini 2.5 Flash via OpenRouter - 2025-11-16
+**Status**: ✅ Implemented | **Latest Update**: Automatic classification & embeddings added - 2025-11-24
 
-**Recent Changes** (2025-11-16):
+**See Also**: [Auto-Classification & Embedding Spec](../auto-classification-embedding/spec.md) - Automatic background processing on note save
+
+**Recent Changes**:
+
+**2025-11-24 - Automatic Classification & Embeddings**:
+- **Automatic Processing**: Every new note (≥20 chars) automatically classified and embedded on save
+- **Shared Architecture**: Moved `NoteClassifier`, `AutoClassifyService`, and utilities to `packages/shared`
+- **Enhanced `/classify`**: Now generates embeddings in addition to classification
+- **Fire-and-Forget**: Zero user-facing latency - all processing happens in background
+- **Semantic Search Ready**: All notes get 768-dimensional embeddings for vector similarity search
+- **Database Adapter Pattern**: Clean integration between bot/web and shared services
+- See [Auto-Classification Spec](../auto-classification-embedding/spec.md) for details
+
+**2025-11-16 - OpenRouter Integration**:
 - **Model Update**: Changed default OpenRouter model from DeepSeek to `google/gemini-2.5-flash`
   - Reason: Better performance and reasoning capabilities
   - Cost: ~$0.00011 per note (6 categories)
