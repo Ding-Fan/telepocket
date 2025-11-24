@@ -103,13 +103,6 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
         onSuccess: () => {
           // Show success toast
           showToast('📦 Note archived - Click Undo to restore', 'success');
-
-          // Auto-navigate after 5 seconds (gives time to undo)
-          setTimeout(() => {
-            if (isArchived) {
-              router.back();
-            }
-          }, 5000);
         },
         onError: (error) => {
           // Revert archived state on error
@@ -189,13 +182,7 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
         </div>
 
         {/* Main Card */}
-        <div
-          className={`bg-glass rounded-3xl border border-ocean-700/30 overflow-hidden transition-all duration-300 ${
-            isArchived
-              ? 'opacity-0 scale-95 pointer-events-none'
-              : 'opacity-100 scale-100 animate-fade-in'
-          }`}
-        >
+        <div className="bg-glass rounded-3xl border border-ocean-700/30 overflow-hidden animate-fade-in">
           {/* Header Section */}
           <div className="p-8 border-b border-ocean-700/30 relative overflow-hidden">
             {/* Background gradient */}
