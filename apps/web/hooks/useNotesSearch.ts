@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createBrowserClient as createClient } from '@telepocket/shared';
 import { searchNotesHybrid } from '@/actions/notes';
-import { HybridSearchResult } from '@telepocket/shared';
+import { HybridSearchResult, NoteCategory } from '@telepocket/shared';
 
 interface UseNotesSearchOptions {
   userId: number;
   query: string;
   pageSize?: number;
   debounceMs?: number;
+  category?: NoteCategory | null;
 }
 
 interface UseNotesSearchReturn {
@@ -23,7 +24,8 @@ export function useNotesSearch({
   userId,
   query,
   pageSize = 20,
-  debounceMs = 300
+  debounceMs = 300,
+  category = null
 }: UseNotesSearchOptions): UseNotesSearchReturn {
   const [results, setResults] = useState<HybridSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,11 +43,11 @@ export function useNotesSearch({
     return () => clearTimeout(timer);
   }, [query, debounceMs]);
 
-  // Reset pagination when query changes
+  // Reset pagination when query or category changes
   useEffect(() => {
     setCurrentPage(1);
     setResults([]);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, category]);
 
   // Perform search
   useEffect(() => {
@@ -57,7 +59,7 @@ export function useNotesSearch({
     }
 
     searchNotes(1);
-  }, [userId, debouncedQuery]);
+  }, [userId, debouncedQuery, category]);
 
   const searchNotes = async (page: number) => {
     try {
@@ -68,7 +70,8 @@ export function useNotesSearch({
         userId,
         debouncedQuery.trim(),
         page,
-        pageSize
+        pageSize,
+        category
       );
 
       if (searchError) {

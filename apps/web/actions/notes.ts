@@ -75,6 +75,41 @@ export async function archiveNote(
 }
 
 /**
+ * Unarchive a note (sets status = 'active')
+ */
+export async function unarchiveNote(
+  noteId: string,
+  userId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createClient();
+
+    // Update the note status to active
+    const { error } = await supabase
+      .from('z_notes')
+      .update({ status: 'active' })
+      .eq('id', noteId)
+      .eq('telegram_user_id', userId);
+
+    if (error) {
+      console.error('Failed to unarchive note:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Revalidate the home page (glance view)
+    revalidatePath('/');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error unarchiving note:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Toggle note pin status (toggles is_marked)
  */
 export async function toggleNotePin(
@@ -182,7 +217,8 @@ export async function searchNotesHybrid(
   userId: number,
   query: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  category: NoteCategory | null = null
 ): Promise<{ results: HybridSearchResult[]; totalCount: number; error?: string }> {
   try {
     const service = getEmbeddingService();
@@ -198,7 +234,8 @@ export async function searchNotesHybrid(
       query_text: query,
       user_id: userId,
       match_threshold: 0.5,
-      page_size: pageSize
+      page_size: pageSize,
+      category_filter: category
     });
 
     if (error) {

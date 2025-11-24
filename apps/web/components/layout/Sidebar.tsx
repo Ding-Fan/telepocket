@@ -26,7 +26,10 @@ export function Sidebar() {
                 <nav className="space-y-2 flex-1">
                     {navigation.map((item, index) => {
                         const Icon = item.icon;
-                        const isActive = pathname === item.href;
+                        // Match exact path or /notes with any query params
+                        const isActive = item.href === '/notes'
+                            ? pathname.startsWith('/notes')
+                            : pathname === item.href;
 
                         return (
                             <Link

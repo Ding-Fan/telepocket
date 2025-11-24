@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTelegram } from '@/hooks/useTelegram';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { NotesList } from '@/components/notes/NotesList';
@@ -8,20 +9,28 @@ import { NotesSearchBar } from '@/components/notes/NotesSearchBar';
 import { useNotesSearch } from '@/hooks/useNotesSearch';
 import { useNotesList } from '@/hooks/useNotesList';
 import { NoteCard } from '@/components/notes/NoteCard';
+import { NoteCategory, CATEGORY_EMOJI, CATEGORY_LABELS } from '@telepocket/shared';
 
 export default function NotesPage() {
   const { user } = useTelegram();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Get category from URL
+  const categoryParam = searchParams.get('category') as NoteCategory | null;
 
   // Use search hook when query exists, otherwise use regular list
   const searchResults = useNotesSearch({
     userId: user?.id || 0,
-    query: searchQuery
+    query: searchQuery,
+    category: categoryParam
   });
 
   const regularNotes = useNotesList({
     userId: user?.id || 0,
-    pageSize: 20
+    pageSize: 20,
+    category: categoryParam
   });
 
   // Determine which data to display
@@ -29,6 +38,10 @@ export default function NotesPage() {
 
   const handleClearSearch = () => {
     setSearchQuery('');
+  };
+
+  const handleClearCategory = () => {
+    router.push('/notes');
   };
 
   return (
@@ -41,6 +54,8 @@ export default function NotesPage() {
             <p className="text-ocean-300 text-sm">
               {isSearching
                 ? `Search results for "${searchQuery}"`
+                : categoryParam
+                ? `Showing ${CATEGORY_LABELS[categoryParam]} notes`
                 : 'Browse and manage your notes'}
             </p>
           </div>
@@ -53,6 +68,22 @@ export default function NotesPage() {
                 onChange={setSearchQuery}
                 onClear={handleClearSearch}
               />
+
+              {/* Category Filter Chip */}
+              {categoryParam && (
+                <div className="mb-4">
+                  <button
+                    onClick={handleClearCategory}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-amber-500/20 border border-cyan-500/30 text-ocean-100 font-medium hover:from-cyan-500/30 hover:to-amber-500/30 transition-all duration-200 text-sm group"
+                  >
+                    <span className="text-lg">{CATEGORY_EMOJI[categoryParam]}</span>
+                    <span>{CATEGORY_LABELS[categoryParam]}</span>
+                    <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
 
               {/* Results */}
               {isSearching ? (
@@ -68,7 +99,7 @@ export default function NotesPage() {
                 />
               ) : (
                 // Regular Notes List
-                <NotesList userId={user.id} />
+                <NotesList userId={user.id} category={categoryParam} />
               )}
             </>
           ) : (

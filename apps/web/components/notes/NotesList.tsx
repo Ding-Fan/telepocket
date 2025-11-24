@@ -7,10 +7,10 @@ import { NoteDetail, NoteCategory } from '@telepocket/shared';
 
 interface NotesListProps {
   userId: number;
+  category?: NoteCategory | null;
 }
 
-export function NotesList({ userId }: NotesListProps) {
-  const [category, setCategory] = useState<NoteCategory | null>(null);
+export function NotesList({ userId, category = null }: NotesListProps) {
   const [status, setStatus] = useState<'active' | 'archived' | 'all'>('active');
 
   const { notes, loading, error, totalCount, hasMore, loadMore, refresh } = useNotesList({

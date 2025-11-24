@@ -14,7 +14,10 @@ export function BottomNav() {
                 <div className="grid grid-cols-3 h-20">
                     {navigation.map((item) => {
                         const Icon = item.icon;
-                        const isActive = pathname === item.href;
+                        // Match exact path or /notes with any query params
+                        const isActive = item.href === '/notes'
+                            ? pathname.startsWith('/notes')
+                            : pathname === item.href;
 
                         return (
                             <Link
