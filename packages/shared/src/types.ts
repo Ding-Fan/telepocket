@@ -165,3 +165,66 @@ export interface NoteDetail {
     images: NoteDetailImage[];
 }
 
+// ============================================================
+// Tags System (Unified Tag System)
+// ============================================================
+
+export interface Tag {
+    id: string;
+    tag_name: string;
+    score_prompt?: string | null;  // AI prompt text (can exist even if AI disabled)
+    is_ai_enabled: boolean;  // Whether AI classification is active
+    created_by: number;  // telegram_user_id
+    is_archived: boolean;
+    auto_confirm_threshold: number;
+    suggest_threshold: number;
+    usage_count: number;
+    last_used_at?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface NoteTag {
+    id: string;
+    note_id: string;
+    tag_id: string;
+    confidence: number;  // 0.0-1.0
+    user_confirmed: boolean;
+    created_at: string;
+    confirmed_at?: string | null;
+
+    // Joined data (optional, populated when joining with z_tags)
+    tag?: Tag;
+}
+
+export interface TagScore {
+    tag_id: string;
+    tag_name: string;
+    score: number;  // 0-100
+    tier: 'definite' | 'high' | 'moderate' | 'low' | 'insufficient';
+    action: 'auto-confirm' | 'suggest' | 'skip';
+}
+
+export interface CreateTagInput {
+    tag_name: string;  // Must match: /^[a-z0-9][a-z0-9_-]{0,28}[a-z0-9]$/
+    score_prompt?: string;  // AI prompt text
+    is_ai_enabled?: boolean;  // Whether AI classification is active (default: false)
+    auto_confirm_threshold?: number;  // Default: 95
+    suggest_threshold?: number;  // Default: 60
+}
+
+export interface UpdateTagInput {
+    tag_name?: string;
+    score_prompt?: string;
+    is_ai_enabled?: boolean;
+    auto_confirm_threshold?: number;
+    suggest_threshold?: number;
+}
+
+export interface NoteTagInsert {
+    note_id: string;
+    tag_id: string;
+    confidence: number;
+    user_confirmed: boolean;
+}
+
