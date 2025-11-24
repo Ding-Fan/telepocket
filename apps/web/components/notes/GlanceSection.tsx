@@ -125,9 +125,15 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
                 <h3 className="text-xl font-bold text-white font-display">{label}</h3>
                 <div className="flex-1 h-px bg-gradient-to-r from-ocean-700 via-ocean-800 to-transparent" />
                 {categoryNotes.length > 0 && (
-                  <span className="text-ocean-400 text-sm font-medium">
+                  <button
+                    onClick={() => router.push(`/notes?category=${category}`)}
+                    className="text-ocean-400 hover:text-cyan-400 text-sm font-medium transition-colors duration-200 flex items-center gap-1.5 group"
+                  >
                     {categoryNotes.length} {categoryNotes.length === 1 ? 'note' : 'notes'}
-                  </span>
+                    <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 )}
               </div>
 

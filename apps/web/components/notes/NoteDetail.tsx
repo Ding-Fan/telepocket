@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { NoteDetail, NoteCategory, CATEGORY_EMOJI, CATEGORY_LABELS, ALL_CATEGORIES } from '@telepocket/shared';
-import { confirmNoteCategory, archiveNote } from '@/actions/notes';
+import { confirmNoteCategory, unarchiveNote } from '@/actions/notes';
 import { useRouter } from 'next/navigation';
 import { CopyNoteButton } from '@/components/ui/CopyNoteButton';
 import { useToast } from '@/components/ui/ToastProvider';
+import { useArchiveNoteMutation } from '@/hooks/useArchiveNoteMutation';
 
 interface NoteDetailProps {
   note: NoteDetail;
@@ -44,7 +45,8 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [confirmedCategories, setConfirmedCategories] = useState<NoteCategory[]>(note.confirmed_categories);
-  const [isArchiving, setIsArchiving] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
+  const archiveMutation = useArchiveNoteMutation();
 
   // Format dates
   const createdDate = new Date(note.created_at).toLocaleDateString('en-US', {
@@ -86,21 +88,46 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
     });
   };
 
-  // Handle archive
+  // Handle archive with undo functionality
   const handleArchive = async () => {
-    if (!confirm('Archive this note? It will be hidden from your active notes.')) {
-      return;
-    }
+    // Set archived state immediately for smooth fade-out
+    setIsArchived(true);
 
-    setIsArchiving(true);
-    const result = await archiveNote(note.note_id, note.telegram_user_id);
+    // Archive note with mutation
+    archiveMutation.mutate(
+      {
+        noteId: note.note_id,
+        userId: note.telegram_user_id,
+      },
+      {
+        onSuccess: () => {
+          // Show success toast
+          showToast('📦 Note archived - Click Undo to restore', 'success');
 
+          // Auto-navigate after 5 seconds (gives time to undo)
+          setTimeout(() => {
+            if (isArchived) {
+              router.back();
+            }
+          }, 5000);
+        },
+        onError: (error) => {
+          // Revert archived state on error
+          setIsArchived(false);
+          showToast(`❌ Failed to archive: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+        },
+      }
+    );
+  };
+
+  // Handle undo archive
+  const handleUndo = async () => {
+    const result = await unarchiveNote(note.note_id, note.telegram_user_id);
     if (result.success) {
-      // Navigate back to previous page
-      router.back();
+      setIsArchived(false);
+      showToast('✅ Archive cancelled', 'success');
     } else {
-      showToast(`❌ Failed to archive: ${result.error}`, 'error');
-      setIsArchiving(false);
+      showToast(`❌ Failed to undo: ${result.error}`, 'error');
     }
   };
 
@@ -137,20 +164,38 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
             {/* Copy Button */}
             <CopyNoteButton note={note} variant="default" />
 
-            {/* Archive Button */}
-            <button
-              onClick={handleArchive}
-              disabled={isArchiving}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 hover:bg-amber-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="text-lg">📦</span>
-              <span className="font-medium">{isArchiving ? 'Archiving...' : 'Archive'}</span>
-            </button>
+            {/* Archive/Undo Button */}
+            {isArchived ? (
+              <button
+                onClick={handleUndo}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 hover:bg-cyan-500/20 transition-all duration-200 animate-fade-in"
+              >
+                <span className="text-lg">↩️</span>
+                <span className="font-medium">Undo Archive</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleArchive}
+                disabled={archiveMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 hover:bg-amber-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="text-lg">📦</span>
+                <span className="font-medium">
+                  {archiveMutation.isPending ? 'Archiving...' : 'Archive'}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Main Card */}
-        <div className="bg-glass rounded-3xl border border-ocean-700/30 overflow-hidden animate-fade-in">
+        <div
+          className={`bg-glass rounded-3xl border border-ocean-700/30 overflow-hidden transition-all duration-300 ${
+            isArchived
+              ? 'opacity-0 scale-95 pointer-events-none'
+              : 'opacity-100 scale-100 animate-fade-in'
+          }`}
+        >
           {/* Header Section */}
           <div className="p-8 border-b border-ocean-700/30 relative overflow-hidden">
             {/* Background gradient */}
