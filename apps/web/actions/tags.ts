@@ -17,7 +17,7 @@ export async function getUserTags(userId: number): Promise<{ success: boolean; t
       .select('*')
       .eq('created_by', userId)
       .eq('is_archived', false)
-      .order('usage_count', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Failed to fetch user tags:', error);

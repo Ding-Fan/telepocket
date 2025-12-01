@@ -447,3 +447,23 @@ User wanting to browse:
 - Functionality enhanced, not reduced
 - All existing features preserved
 - Old `/search` URL naturally 404s (expected behavior)
+
+## Related Navigation Patterns
+
+### Tags Page Navigation (2025-11-26)
+
+Following the same AppLayout pattern, the Tags page (`/tags`) was updated to maintain navigation consistency:
+
+**Implementation**:
+- Wrapped in `AppLayout` (Sidebar + BottomNav)
+- Added back button with `router.back()` functionality
+- Converted to client component for router access
+- Maintains "utility page" status (not in main nav)
+
+**Rationale**:
+- **Consistent chrome** - All major pages have same navigation structure
+- **Mixed approach** - Some pages in main nav (Glances, Notes, Settings), some accessed contextually (Tags from Settings)
+- **Back button pattern** - Used for utility pages, complements main navigation
+- **Flexible navigation** - router.back() works from any referrer, not hardcoded route
+
+This demonstrates the app's navigation philosophy: Core destinations in main nav, utility pages with contextual back buttons.

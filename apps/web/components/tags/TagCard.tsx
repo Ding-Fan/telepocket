@@ -16,7 +16,7 @@ export function TagCard({ tag, userId }: TagCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
-  const isAITag = tag.score_prompt !== null;
+  const isAITag = tag.is_ai_enabled;
 
   const handleDelete = async () => {
     if (!confirm(`Are you sure you want to delete the "${tag.tag_name}" tag?`)) {
