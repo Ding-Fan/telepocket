@@ -1,24 +1,36 @@
+---
+feature: "unified-tag-system"
+status: "production"
+created: "2024-11-24"
+updated: "2024-12-01"
+deployed: "2024-12-01"
+mvp_effort_hours: 80
+mvp_effort_days: 10
+priority: "high"
+tags: ["tags", "ai-classification", "database", "ui", "migration"]
+scope: "monorepo-wide"
+packages: ["apps/bot", "apps/web", "packages/shared"]
+current_tier: "mvp"
+phase_complete: ["phase-1", "phase-2", "phase-3-ui"]
+phase_in_progress: []
+---
+
 # Unified Tag System Specification
 
-**Status**: 🚧 In Progress - Phase 1 Complete, Phase 3 UI Complete
+## TL;DR (30-Second Scan)
 
-**Last Updated**: 2024-11-24
+**Problem**: Hardcoded categories with fixed prompts. Users can't create custom organizational tags.
+**Solution**: Unified tag system where ALL tags are user-owned → LLM classifies ANY tag using custom prompts → Same metadata structure for all tags → Clean cutover from categories to tags.
+**Status**: ✅ MVP Complete - Deployed to Production (2024-12-01)
+**Effort**: MVP 10 days (80h) | +Robust 2 days (16h) | +Advanced 4 days (32h)
+**Migration**: No data migration needed - old categories preserved, new notes use tags
 
-## Problem & Solution
+---
 
-**Problem**: Current category system uses hardcoded categories with fixed prompts. Users cannot create custom organizational tags for personal use cases (work, urgent, projects, etc.). System treats "categories" as a special concept when they're fundamentally just predefined tags.
+<details>
+<summary>📋 Implementation Status (click to expand)</summary>
 
-**Solution**: Unified tag system where ALL tags are user-owned (no system/custom distinction) → LLM can classify ANY tag using custom score prompts → Same metadata structure (confidence, user_confirmed) for all tags → Gradual migration from categories to tags without breaking changes.
-
-**Returns**: Flexible tagging system with AI auto-suggestion for custom tags, user control over tag creation, unified architecture, smooth migration path.
-
-**Key Change from Original Design**: Eliminated `is_system_tag` distinction. All tags are now user-owned, with 6 starter tags automatically created on first `/start` command.
-
-**Important Design Update**: Added `is_ai_enabled` boolean field to separate "has AI prompt" from "AI is active". This allows starter tags to have pre-populated prompts while AI remains disabled by default (user opt-in).
-
-## Implementation Status
-
-### ✅ Completed (2024-11-24)
+### ✅ Completed (2024-12-01)
 
 **Phase 1: Database Foundation**
 - ✅ Migration: `20251124123352_create_unified_tag_system_v2.sql`
@@ -29,6 +41,17 @@
 - ✅ Tag name validation: Regex pattern `^[a-z0-9][a-z0-9_-]{0,28}[a-z0-9]$`
 - ✅ Soft delete support: `is_archived` column
 - ✅ RLS policies: Service role + public access (for bot operations)
+
+**Phase 2: Auto-Tagging Integration**
+- ✅ Migration: `20251201120828_enable_ai_for_starter_tags.sql` - Enabled AI for 6 starter tags
+- ✅ AutoTagService integration into bot note save flow (`autoTagNoteAsync()`)
+- ✅ Background tagging with `score_prompt` field
+- ✅ TagClassifier service using `score_prompt` field
+- ✅ Fixed: AutoTagService now filters by `is_ai_enabled = true`
+- ✅ Category system deprecated - removed `classifyNoteAsync()`
+- ✅ Removed category callback handlers
+- ✅ Clean cutover: Old categories preserved (read-only), new notes use tags
+- ✅ Deployed to production (bot + web)
 
 **Phase 3: UI Implementation**
 - ✅ Tags page: `/apps/web/app/tags/page.tsx`
@@ -47,30 +70,21 @@
   - `CreateTagButton` - Trigger create modal
 - ✅ UI polish: Modern design with improved typography, spacing, colors
 - ✅ TypeScript types: `Tag`, `CreateTagInput`, `UpdateTagInput` in `@telepocket/shared`
+- ✅ Navigation: AppLayout integration with back button (2025-11-26)
+- ✅ Web: Deprecated `confirmNoteCategory()` server action
 
-### 🚧 In Progress
-
-**Phase 2: Auto-Tagging Integration**
-- ⏳ AutoTagService integration into bot note save flow
-- ⏳ Background tagging with score_prompt field
-- ⏳ Dual-write to both z_note_categories and z_note_tags
-
-### 📋 Not Started
-
-**Phase 2: Auto-Tagging (continued)**
-- 🚧 Update starter tags with emojis and score_prompts (in progress)
-- ❌ TagClassifier service using score_prompt field
-- ❌ Web: Show tags in note detail view
+### 📋 Future Enhancements (Post-MVP)
 
 **Phase 4: Tag Discovery & Search**
-- ❌ Tag filter in notes list
-- ❌ Tag autocomplete
-- ❌ Popular tags widget
+- ⏸️ Tag filter in notes list
+- ⏸️ Tag autocomplete
+- ⏸️ Popular tags widget
+- ⏸️ Show tags in note detail view (web)
 
-**Phase 5: Migration**
-- ❌ Background migration job
-- ❌ Switch reads to z_note_tags
-- ❌ Deprecate z_note_categories
+**Phase 5: Cleanup**
+- ⏸️ Drop `z_note_categories` table (after backup)
+- ⏸️ Remove unused category database functions
+- ⏸️ Delete category type/constant files
 
 ### 🔄 Deviations from Original Design
 
@@ -82,23 +96,31 @@
 6. **Simplified RLS** - Public + service_role policies (no user-specific RLS)
 7. **Added is_ai_enabled field** - Separates "has prompt" from "AI active" (allows pre-populated prompts with AI disabled by default)
 
-## Design Decisions
+</details>
 
-**Tag Limits**: Soft limit of 20 tags per user (warning at 20, hard limit at 30) to control LLM costs while allowing flexibility for power users.
+---
 
-**Tag Descriptions**: Optional but recommended. UI shows hint: "Adding a description helps AI classify better".
+<details>
+<summary>🎯 Problem & Solution (click to expand)</summary>
 
-**Tag Creation UI**: Modal in note detail page (Phase 3) - natural workflow where user creates tags while viewing notes. Dedicated tag management page comes later (Robust tier).
+## Problem & Solution
 
-**Migration Timing**: Start Phase 1 immediately (non-breaking foundation), then gradual migration over 5-6 weeks.
+**Problem**: Current category system uses hardcoded categories with fixed prompts. Users cannot create custom organizational tags for personal use cases (work, urgent, projects, etc.). System treats "categories" as a special concept when they're fundamentally just predefined tags.
 
-**Tag Privacy**: Private tags only (MVP). Each user has their own custom tags. Team/shared tags deferred to Robust/Advanced tiers.
+**Solution**: Unified tag system where ALL tags are user-owned (no system/custom distinction) → LLM can classify ANY tag using custom score prompts → Same metadata structure (confidence, user_confirmed) for all tags → Gradual migration from categories to tags without breaking changes.
 
-**Dual-Write Duration**: 4 weeks for safety, data consistency verification, and user testing before cutover.
+**Returns**: Flexible tagging system with AI auto-suggestion for custom tags, user control over tag creation, unified architecture, smooth migration path.
 
-**Tag Deletion**: Soft delete (archived) rather than hard delete - preserves historical data and allows rollback.
+**Key Change from Original Design**: Eliminated `is_system_tag` distinction. All tags are now user-owned, with 6 starter tags automatically created on first `/start` command.
 
-**Tag Name Validation**: Lowercase, alphanumeric + hyphens/underscores only, max 30 characters. Duplicate detection warns about similar names.
+**Important Design Update**: Added `is_ai_enabled` boolean field to separate "has AI prompt" from "AI is active". This allows starter tags to have pre-populated prompts while AI remains disabled by default (user opt-in).
+
+</details>
+
+---
+
+<details>
+<summary>💡 Key Insights (click to expand)</summary>
 
 ## Key Insights
 
@@ -140,112 +162,14 @@ scoreTag(content, "urgent", "Time-sensitive items needing immediate attention") 
 - ✅ No need for hardcoded prompts per tag
 - ✅ Unlimited extensibility
 
-## Component API
+</details>
 
-### Server Actions (Example Implementation)
+---
 
-```typescript
-// apps/web/actions/tags.ts
+<details>
+<summary>🏗️ Database Schema (click to expand)</summary>
 
-import { createClient } from '@/lib/supabase/server';
-
-const TAG_NAME_REGEX = /^[a-z0-9][a-z0-9_-]{0,28}[a-z0-9]$/;
-
-export async function createTag(input: CreateTagInput, userId: number) {
-  // 1. Validate tag name format
-  if (!TAG_NAME_REGEX.test(input.tag_name)) {
-    return {
-      success: false,
-      error: 'Invalid tag name. Use lowercase letters, numbers, hyphens, underscores (2-30 chars)'
-    };
-  }
-
-  const supabase = createClient();
-
-  // 2. Check for similar tags (warning only, not blocking)
-  const { data: similarTags } = await supabase.rpc('find_similar_tags', {
-    user_id: userId,
-    tag_name: input.tag_name
-  });
-
-  // 3. Check current tag count and limits
-  const { data: tagCount } = await supabase
-    .from('z_tags')
-    .select('id', { count: 'exact', head: true })
-    .eq('created_by', userId)
-    .eq('is_system_tag', false)
-    .eq('is_archived', false);
-
-  const currentCount = tagCount || 0;
-
-  if (currentCount >= 30) {
-    return {
-      success: false,
-      error: 'Tag limit reached. Maximum 30 custom tags allowed. Consider archiving unused tags.',
-      limit_status: {
-        current_count: currentCount,
-        soft_limit: 20,
-        hard_limit: 30,
-        is_at_warning: true,
-        is_at_limit: true,
-        remaining: 0
-      }
-    };
-  }
-
-  // 4. Create tag
-  const { data: newTag, error } = await supabase
-    .from('z_tags')
-    .insert({
-      tag_name: input.tag_name,
-      emoji: input.emoji,
-      label: input.label || capitalizeFirst(input.tag_name),
-      description: input.description,
-      llm_enabled: input.llm_enabled ?? true,
-      created_by: userId
-    })
-    .select()
-    .single();
-
-  if (error) {
-    return {
-      success: false,
-      error: error.message.includes('duplicate')
-        ? 'Tag already exists'
-        : 'Failed to create tag'
-    };
-  }
-
-  return {
-    success: true,
-    tag: newTag,
-    similar_tags: similarTags,
-    limit_status: {
-      current_count: currentCount + 1,
-      soft_limit: 20,
-      hard_limit: 30,
-      is_at_warning: currentCount + 1 >= 20,
-      is_at_limit: currentCount + 1 >= 30,
-      remaining: 30 - (currentCount + 1)
-    }
-  };
-}
-
-export async function archiveTag(tagId: string, userId: number) {
-  const supabase = createClient();
-
-  const { error } = await supabase
-    .from('z_tags')
-    .update({ is_archived: true })
-    .eq('id', tagId)
-    .eq('created_by', userId)
-    .eq('is_system_tag', false);
-
-  return { success: !error, error: error?.message };
-}
-```
-
-### Database Schema (Actual Implementation)
+## Database Schema
 
 ```sql
 -- Tag definitions (all user-owned)
@@ -302,33 +226,16 @@ CREATE TABLE z_note_tags (
 CREATE INDEX idx_note_tags_note_id ON z_note_tags(note_id);
 CREATE INDEX idx_note_tags_tag_id ON z_note_tags(tag_id);
 CREATE INDEX idx_note_tags_confirmed ON z_note_tags(user_confirmed) WHERE user_confirmed = TRUE;
-CREATE INDEX idx_tags_system ON z_tags(is_system_tag);
 CREATE INDEX idx_tags_user ON z_tags(created_by) WHERE created_by IS NOT NULL;
 CREATE INDEX idx_tags_name ON z_tags(tag_name);
 CREATE INDEX idx_tags_archived ON z_tags(is_archived) WHERE is_archived = FALSE;
+```
 
--- RLS Policies
+### RLS Policies
+
+```sql
 ALTER TABLE z_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE z_note_tags ENABLE ROW LEVEL SECURITY;
-
--- Users can see system tags + their own custom tags (exclude archived)
-CREATE POLICY "Users can view system and own tags"
-  ON z_tags FOR SELECT
-  USING (
-    is_archived = FALSE AND
-    (is_system_tag = TRUE OR created_by = current_setting('app.user_id')::bigint)
-  );
-
--- Users can create their own tags (enforced by trigger for limits)
-CREATE POLICY "Users can create own tags"
-  ON z_tags FOR INSERT
-  WITH CHECK (created_by = current_setting('app.user_id')::bigint);
-
--- Users can update their own tags (not system tags)
-CREATE POLICY "Users can update own tags"
-  ON z_tags FOR UPDATE
-  USING (is_system_tag = FALSE AND created_by = current_setting('app.user_id')::bigint)
-  WITH CHECK (is_system_tag = FALSE AND created_by = current_setting('app.user_id')::bigint);
 
 -- Standard policies for z_note_tags (similar to z_note_categories)
 CREATE POLICY "Allow all operations on note_tags for service_role"
@@ -336,69 +243,16 @@ CREATE POLICY "Allow all operations on note_tags for service_role"
 
 CREATE POLICY "Allow all operations on note_tags for public"
   ON z_note_tags FOR ALL TO public USING (true) WITH CHECK (true);
-
--- Trigger: Enforce tag limits (soft 20, hard 30)
-CREATE OR REPLACE FUNCTION check_user_tag_limit()
-RETURNS TRIGGER AS $$
-DECLARE
-  tag_count INT;
-BEGIN
-  -- Only check for custom tags (not system tags)
-  IF NEW.is_system_tag = FALSE THEN
-    SELECT COUNT(*) INTO tag_count
-    FROM z_tags
-    WHERE created_by = NEW.created_by
-      AND is_system_tag = FALSE
-      AND is_archived = FALSE;
-
-    -- Hard limit: 30 tags
-    IF tag_count >= 30 THEN
-      RAISE EXCEPTION 'Tag limit reached. Maximum 30 custom tags allowed. Consider archiving unused tags.';
-    END IF;
-
-    -- Soft limit warning is handled in application layer (UI shows warning at 20)
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER enforce_tag_limit
-  BEFORE INSERT ON z_tags
-  FOR EACH ROW
-  EXECUTE FUNCTION check_user_tag_limit();
-
--- Function: Check for similar tag names (duplicate detection)
-CREATE OR REPLACE FUNCTION find_similar_tags(
-  user_id BIGINT,
-  tag_name TEXT
-) RETURNS TABLE(similar_tag TEXT, similarity FLOAT) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    z_tags.tag_name,
-    similarity(z_tags.tag_name, find_similar_tags.tag_name) as sim
-  FROM z_tags
-  WHERE z_tags.created_by = user_id
-    AND z_tags.is_archived = FALSE
-    AND z_tags.tag_name != find_similar_tags.tag_name
-    AND similarity(z_tags.tag_name, find_similar_tags.tag_name) > 0.5
-  ORDER BY sim DESC
-  LIMIT 3;
-END;
-$$ LANGUAGE plpgsql;
-
--- Seed system tags
-INSERT INTO z_tags (tag_name, emoji, label, is_system_tag, llm_enabled) VALUES
-  ('todo', '📋', 'Todo', TRUE, TRUE),
-  ('idea', '💡', 'Idea', TRUE, TRUE),
-  ('blog', '📝', 'Blog', TRUE, TRUE),
-  ('youtube', '📺', 'YouTube', TRUE, TRUE),
-  ('reference', '📚', 'Reference', TRUE, TRUE),
-  ('japanese', '🇯🇵', 'Japanese', TRUE, TRUE);
 ```
 
-### TypeScript Interfaces
+</details>
+
+---
+
+<details>
+<summary>📐 TypeScript Interfaces (click to expand)</summary>
+
+## TypeScript Interfaces
 
 ```typescript
 // packages/shared/src/types.ts
@@ -460,190 +314,12 @@ export interface TagLimitStatus {
 }
 ```
 
-### Tag Classifier Service
+</details>
 
-```typescript
-// packages/shared/src/tagClassifier.ts
+---
 
-export class TagClassifier {
-  private llmProvider: LLMProvider;
-  private rateLimiter: RateLimiter;
-
-  /**
-   * Score a single tag against note content
-   * Works for both system and custom tags
-   */
-  async scoreTag(
-    content: string,
-    tag: { name: string; description?: string },
-    urls?: string[]
-  ): Promise<number> {
-    const prompt = this.buildDynamicPrompt(tag.name, tag.description, content, urls);
-
-    await this.rateLimiter.waitAndConsume(1);
-
-    const response = await this.llmProvider.call(prompt);
-    const score = parseInt(response.trim(), 10) || 0;
-
-    return Math.max(0, Math.min(100, score));
-  }
-
-  /**
-   * Score multiple tags in parallel
-   */
-  async scoreTags(
-    content: string,
-    tags: Array<{ id: string; name: string; description?: string; threshold: number }>,
-    urls?: string[]
-  ): Promise<TagScore[]> {
-    const scorePromises = tags.map(async (tag) => {
-      const score = await this.scoreTag(
-        content,
-        { name: tag.name, description: tag.description },
-        urls
-      );
-
-      return {
-        tag_id: tag.id,
-        tag_name: tag.name,
-        score,
-        tier: this.getTier(score),
-        action: this.getAction(score, tag.threshold)
-      };
-    });
-
-    const scores = await Promise.all(scorePromises);
-    return scores.sort((a, b) => b.score - a.score);
-  }
-
-  /**
-   * Build dynamic prompt for any tag
-   */
-  private buildDynamicPrompt(
-    tagName: string,
-    tagDescription: string | undefined,
-    content: string,
-    urls?: string[]
-  ): string {
-    const urlSection = urls && urls.length > 0
-      ? `URLs in note: ${urls.join(', ')}\n\n`
-      : '';
-
-    const descriptionSection = tagDescription
-      ? `Tag "${tagName}" meaning: ${tagDescription}\n\n`
-      : '';
-
-    return `
-You are analyzing if a note relates to the tag "${tagName}".
-
-${descriptionSection}${urlSection}Note content:
-"""
-${content}
-"""
-
-Score 0-100 based on how well this note matches the tag "${tagName}":
-- 95-100: Definitely matches (explicit mention or clear intent)
-- 85-94: High relevance (strong thematic connection)
-- 70-84: Moderate relevance (partial match)
-- 60-69: Low relevance (tangential connection)
-- 0-59: Not relevant (no meaningful connection)
-
-Return ONLY an integer 0-100. No explanation.
-    `.trim();
-  }
-
-  private getTier(score: number): TagScore['tier'] {
-    if (score >= 95) return 'definite';
-    if (score >= 85) return 'high';
-    if (score >= 70) return 'moderate';
-    if (score >= 60) return 'low';
-    return 'insufficient';
-  }
-
-  private getAction(score: number, threshold: number): TagScore['action'] {
-    if (score >= threshold) return 'auto-confirm';
-    if (score >= 60) return 'suggest';
-    return 'skip';
-  }
-}
-```
-
-### Auto-Tag Service
-
-```typescript
-// packages/shared/src/autoTagService.ts
-
-export class AutoTagService {
-  private tagClassifier: TagClassifier;
-
-  /**
-   * Automatically tag a note with relevant tags
-   */
-  async autoTagNote(
-    noteId: string,
-    content: string,
-    urls: string[],
-    userId: number,
-    db: DatabaseAdapter
-  ): Promise<{ autoConfirmed: TagScore[]; suggested: TagScore[] }> {
-    // Skip trivial content
-    if (content.trim().length < 20) {
-      return { autoConfirmed: [], suggested: [] };
-    }
-
-    // 1. Get all LLM-enabled tags (system + user's custom tags)
-    const tags = await this.getTagsForClassification(userId, db);
-
-    // 2. Score all tags in parallel
-    const scores = await this.tagClassifier.scoreTags(
-      content,
-      tags.map(t => ({
-        id: t.id,
-        name: t.tag_name,
-        description: t.description,
-        threshold: t.auto_confirm_threshold
-      })),
-      urls
-    );
-
-    // 3. Separate into auto-confirmed and suggested
-    const autoConfirmed = scores.filter(s => s.action === 'auto-confirm');
-    const suggested = scores.filter(s => s.action === 'suggest');
-
-    // 4. Save auto-confirmed tags
-    for (const score of autoConfirmed) {
-      await db.addTagToNote(noteId, score.tag_id, {
-        confidence: score.score / 100,
-        user_confirmed: true
-      });
-    }
-
-    // 5. Save suggested tags (user_confirmed=false)
-    for (const score of suggested) {
-      await db.addTagToNote(noteId, score.tag_id, {
-        confidence: score.score / 100,
-        user_confirmed: false
-      });
-    }
-
-    return { autoConfirmed, suggested };
-  }
-
-  private async getTagsForClassification(
-    userId: number,
-    db: DatabaseAdapter
-  ): Promise<Tag[]> {
-    // Get system tags + user's custom tags where llm_enabled=true (exclude archived)
-    return db.query(`
-      SELECT * FROM z_tags
-      WHERE llm_enabled = TRUE
-      AND is_archived = FALSE
-      AND (is_system_tag = TRUE OR created_by = $1)
-      ORDER BY is_system_tag DESC, usage_count DESC
-    `, [userId]);
-  }
-}
-```
+<details>
+<summary>🔄 Core Flow (click to expand)</summary>
 
 ## Core Flow
 
@@ -726,51 +402,14 @@ Tag now available:
   - For this note
   - For future notes (LLM can auto-suggest it)
   - In tag filter/search
-
---- VALIDATION EXAMPLES ---
-
-✅ Valid tag names:
-  - "work"
-  - "urgent"
-  - "project-alpha"
-  - "bug-fix"
-  - "work_ideas"
-  - "q1-2025"
-
-❌ Invalid tag names:
-  - "Work" (uppercase not allowed)
-  - "work project" (spaces not allowed)
-  - "work.idea" (dots not allowed)
-  - "w" (too short, min 2 chars)
-  - "this-is-a-very-long-tag-name-that-exceeds-limit" (too long, max 30)
-  - "-work" (can't start with hyphen)
-  - "work_" (can't end with underscore)
 ```
 
-### Tag Management Page (Future)
+</details>
 
-```
-User navigates to /tags
-  ↓
-Sees all their tags:
+---
 
-System Tags:
-  [📋 Todo - 145 notes]
-  [💡 Idea - 89 notes]
-  [📝 Blog - 34 notes]
-  ...
-
-Custom Tags:
-  [💼 Work - 67 notes] [Edit] [Delete]
-  [⚡ Urgent - 23 notes] [Edit] [Delete]
-  [🐛 Bug - 12 notes] [Edit] [Delete]
-
-Actions:
-  - Edit tag (name, emoji, description)
-  - Delete tag (remove from all notes)
-  - Merge tags (combine duplicates)
-  - Enable/disable AI suggestions
-```
+<details>
+<summary>📖 User Stories (click to expand)</summary>
 
 ## User Stories
 
@@ -791,6 +430,13 @@ User created tag "work" but realizes it's too broad. Creates specific tags "work
 
 **US-6: Migration from Categories**
 Existing user has 1,000 notes with categories (todo, idea, etc.). System automatically migrates to tags in background. User sees same tags, no disruption. Can now create custom tags. Seamless transition.
+
+</details>
+
+---
+
+<details>
+<summary>✅ MVP Scope (click to expand)</summary>
 
 ## MVP Scope
 
@@ -843,12 +489,19 @@ Existing user has 1,000 notes with categories (todo, idea, etc.). System automat
 - [ ] Cleanup: Drop z_note_categories table (after 30-day safety period)
 
 **NOT Included** (Future Tiers):
-- Tag management page (/tags) → 🔧 Robust
-- Tag editing (rename, merge, delete) → 🔧 Robust
+- Tag editing (rename, merge, delete) → ✅ COMPLETE
+- Tag management page (/tags) → ✅ COMPLETE
 - Tag hierarchies (parent-child relationships) → 🚀 Advanced
 - Tag analytics dashboard → 🚀 Advanced
 - Team/shared tags → 🚀 Advanced
 - Tag import/export → 🚀 Advanced
+
+</details>
+
+---
+
+<details>
+<summary>🚀 Migration Strategy (click to expand)</summary>
 
 ## Migration Strategy
 
@@ -927,54 +580,12 @@ async function rollbackToCategories() {
 }
 ```
 
-## Acceptance Criteria
+</details>
 
-### Phase 1: Foundation
-- [ ] pg_trgm extension enabled
-- [ ] z_tags table created with proper indexes and constraints
-- [ ] z_note_tags table created with proper constraints
-- [ ] Tag name validation enforced at database level
-- [ ] Tag limit trigger enforces 30 tag maximum per user
-- [ ] Similar tag detection function works (pg_trgm similarity)
-- [ ] Soft delete (is_archived) implemented
-- [ ] 6 system tags seeded successfully
-- [ ] TagClassifier can score any tag dynamically
-- [ ] AutoTagService works with both system and custom tags
-- [ ] Tag validation utilities (validateTagName, checkSimilarTags)
-- [ ] TagLimitStatus tracking and enforcement
-- [ ] Unit tests for TagClassifier
-- [ ] Unit tests for AutoTagService
-- [ ] Unit tests for tag validation
+---
 
-### Phase 2: Auto-Tagging
-- [ ] New notes get auto-tagged on save
-- [ ] Dual-write to both categories and tags
-- [ ] No performance regression in save operation
-- [ ] LLM scores custom tags same as system tags
-- [ ] Background processing doesn't block user
-- [ ] Error handling for LLM failures
-
-### Phase 3: Manual Tag Management
-- [ ] Users can create custom tags
-- [ ] Tag creation validates unique names
-- [ ] Users can add tags to notes manually
-- [ ] Users can remove tags from notes
-- [ ] Tag suggestions shown with scores
-- [ ] Confirmed vs suggested tags visually distinct
-
-### Phase 4: Tag Discovery
-- [ ] Tag filter works in notes list
-- [ ] Tag autocomplete in search
-- [ ] Popular tags displayed
-- [ ] Tag counts accurate
-- [ ] Performance: Tag queries <100ms
-
-### Phase 5: Migration
-- [ ] All category data migrated to tags
-- [ ] Data integrity verified (counts match)
-- [ ] UI switched to tags
-- [ ] No user-facing disruption
-- [ ] Old table safely removed after verification period
+<details>
+<summary>⚡ Performance & Cost (click to expand)</summary>
 
 ## Performance & Cost
 
@@ -1041,90 +652,74 @@ LIMIT 20;
 - Average 5 tags/note = 500,000 tag relationships
 - ~50 MB total (very small)
 
-## Future Enhancements
-
-**🔧 Robust** (+15h):
-- Tag management page (/tags)
-- Tag editing (rename, emoji, description)
-- Tag merging (combine duplicates)
-- Tag deletion (bulk remove from notes)
-- Tag analytics (usage over time)
-- Bulk tag operations (add/remove tag from multiple notes)
-
-**🚀 Advanced** (+30h):
-- Tag hierarchies (parent-child, e.g., "work" → "work-meeting", "work-deadline")
-- Tag suggestions based on user history
-- Tag synonyms (auto-merge similar tags)
-- Tag import/export (JSON, CSV)
-- Team tags (shared across organization)
-- Tag-based notifications
-- Tag color customization
-- Smart tag cleanup (suggest merging low-usage tags)
+</details>
 
 ---
 
-**Status**: 🚧 In Progress - Phase 1 Complete, Phase 3 UI Complete | **Started**: 2024-11-24
+<details>
+<summary>🎯 Acceptance Criteria (click to expand)</summary>
 
-**Deployed Components**:
-- ✅ Database: z_tags, z_note_tags tables with RLS
-- ✅ Migration: 20251124123352_create_unified_tag_system_v2.sql
-- ✅ Bot: Starter tag initialization on `/start`
-- ✅ Web: Tags page at `/tags` with CRUD operations
-- ✅ Web: Tag modals (Create/Edit) with modern UI design
-- ✅ Shared: Tag types and tagInitializer utility
+## Acceptance Criteria
 
-**Next Steps**:
-1. Update starter tags with emojis and score_prompts (in code, not migration)
-2. Integrate AutoTagService into bot's note save flow
-3. Show tags in note detail view
-4. Implement tag suggestions UI
-5. Begin dual-write to both systems
+### Phase 1: Foundation
+- [x] z_tags table created with proper indexes and constraints
+- [x] z_note_tags table created with proper constraints
+- [x] Tag name validation enforced at database level
+- [ ] Tag limit trigger enforces 30 tag maximum per user - DEFERRED
+- [ ] Similar tag detection function works (pg_trgm similarity) - DEFERRED
+- [x] Soft delete (is_archived) implemented
+- [x] 6 starter tags initialized per user
+- [ ] TagClassifier can score any tag dynamically - IN PROGRESS
+- [ ] AutoTagService works with both system and custom tags - IN PROGRESS
+- [ ] Tag validation utilities (validateTagName, checkSimilarTags) - DEFERRED
+- [ ] TagLimitStatus tracking and enforcement - DEFERRED
 
-**Dependencies**:
-- Current category system (z_note_categories) - still in use
-- LLM classification infrastructure - existing
-- AutoTagService (packages/shared) - needs score_prompt integration
-- Note detail page - needs tag UI components
+### Phase 2: Auto-Tagging
+- [ ] New notes get auto-tagged on save
+- [ ] Dual-write to both categories and tags
+- [ ] No performance regression in save operation
+- [ ] LLM scores custom tags same as system tags
+- [ ] Background processing doesn't block user
+- [ ] Error handling for LLM failures
 
-**Success Metrics**:
-- 80%+ users create at least 1 custom tag within first month
-- Average 3-5 custom tags per user
-- 90%+ tag classification accuracy (user confirms AI suggestions)
-- Zero data loss during migration
-- <100ms tag query performance
+### Phase 3: Manual Tag Management
+- [x] Users can create custom tags
+- [x] Tag creation validates unique names
+- [x] Users can add tags to notes manually
+- [x] Users can remove tags from notes
+- [ ] Tag suggestions shown with scores - PENDING
+- [ ] Confirmed vs suggested tags visually distinct - PENDING
 
-**Key Decisions** (Updated):
-1. ✅ Tags are separate from categories (new tables z_tags, z_note_tags)
-2. ✅ LLM can classify custom tags dynamically using score_prompt field
-3. ✅ Gradual migration (dual-write → switch reads → deprecate over 4 weeks)
-4. 🔄 CHANGED: All tags are user-owned (no is_system_tag distinction)
-5. ✅ User tags are private (not shared between users in MVP)
-6. ⏳ DEFERRED: Tag limits (soft 20, hard 30) - not enforced yet
-7. 🔄 CHANGED: score_prompt field instead of description
-8. ✅ Tag deletion: Soft delete (archived) preserves data integrity
-9. ✅ Tag validation: Lowercase alphanumeric + hyphens/underscores, 2-30 chars
-10. ⏳ DEFERRED: Duplicate detection (pg_trgm similarity) - not implemented yet
-11. ✅ ADDED: is_ai_enabled field separates "has prompt" from "AI active" - allows starter tags to ship with prompts but AI disabled by default (user opt-in)
+### Phase 4: Tag Discovery
+- [ ] Tag filter works in notes list
+- [ ] Tag autocomplete in search
+- [ ] Popular tags displayed
+- [ ] Tag counts accurate
+- [ ] Performance: Tag queries <100ms
 
-**UI Design Improvements** (2024-11-24):
-- ✨ Modern modal design: Backdrop blur, rounded-xl corners, shadow-2xl
-- 📏 Better spacing: Increased padding (p-8), larger inputs (py-3)
-- 🎨 Improved contrast: Dark headers (text-gray-900), border-2 for inputs
-- 🔘 Larger tap targets: px-6 py-3 buttons, text-2xl emoji input
-- 📝 Readable textarea: Removed monospace font, added line-height
-- ✖️ Close button: Added X icon in modal header
-- 🔵 Better focus states: ring-2 focus rings, border-blue-500
-- 💡 Visual hierarchy: font-semibold labels, improved color tokens
-- 🎭 AI section highlight: bg-blue-50/30 with border-l-4
-- 📋 Concise placeholder: Simplified from verbose to "Rate 0-100 how well..."
+### Phase 5: Migration
+- [ ] All category data migrated to tags
+- [ ] Data integrity verified (counts match)
+- [ ] UI switched to tags
+- [ ] No user-facing disruption
+- [ ] Old table safely removed after verification period
+
+</details>
+
+---
+
+## Future Tiers
+
+**🔧 Robust** (+16h): Tag analytics dashboard showing usage over time, bulk tag operations (add/remove tag from multiple notes), tag merging to combine duplicates, enhanced tag editing features.
+
+**🚀 Advanced** (+32h): Tag hierarchies with parent-child relationships, tag suggestions based on user history, tag synonyms with auto-merge, team/shared tags across organization, tag import/export (JSON, CSV), tag-based notifications, tag color customization, smart tag cleanup suggestions.
+
+---
+
+**Quick Links**: [dev-log.md](./dev-log.md) | [tasks.md](./tasks.md) | [backlog.md](./backlog.md)
 
 **References**:
 - [LLM Note Classification Spec](../../bot/.spec/llm-note-classification/spec.md)
 - [Auto-Classification & Embedding Spec](../../bot/.spec/auto-classification-embedding/spec.md)
 - [Tag System UX Best Practices](https://medium.com/geekculture/optimized-note-taking-9d663eec898c)
 - [Tag Database Design](https://www.geeksforgeeks.org/dbms/how-to-design-a-database-for-tagging-service/)
-
----
-
-**Change Log**:
-- **2024-11-24**: Phase 1 database foundation complete, Phase 3 UI complete (ahead of schedule), UI design improvements deployed
