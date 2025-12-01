@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { NoteDetail, NoteCategory, CATEGORY_EMOJI, CATEGORY_LABELS, ALL_CATEGORIES } from '@telepocket/shared';
-import { confirmNoteCategory, unarchiveNote } from '@/actions/notes';
+import { unarchiveNote } from '@/actions/notes';
 import { useRouter } from 'next/navigation';
 import { CopyNoteButton } from '@/components/ui/CopyNoteButton';
 import { useToast } from '@/components/ui/ToastProvider';
@@ -73,19 +73,10 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
     cat => !confirmedCategories.includes(cat)
   );
 
-  // Handle category confirmation
+  // Category confirmation removed - deprecated in favor of tag system
   const handleCategoryClick = async (category: NoteCategory) => {
-    startTransition(async () => {
-      const result = await confirmNoteCategory(note.note_id, category, note.telegram_user_id);
-
-      if (result.success) {
-        // Update local state optimistically
-        setConfirmedCategories([...confirmedCategories, category]);
-        showToast(`✅ Tagged as ${CATEGORY_EMOJI[category]} ${CATEGORY_LABELS[category]}`, 'success');
-      } else {
-        showToast(`❌ Failed to tag category: ${result.error}`, 'error');
-      }
-    });
+    // No-op: Category confirmation has been deprecated
+    console.log('Category confirmation deprecated - use tag system instead');
   };
 
   // Handle archive with undo functionality

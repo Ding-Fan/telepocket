@@ -7,15 +7,9 @@ import { escapeMarkdownV2, formatLinksForDisplay } from '../utils/linkFormatter'
 import { validateNoteContent } from '../utils/validation';
 import { handleCommandError, handleValidationError } from '../utils/errorHandler';
 import { imageUploader } from '../services/imageUploader';
-import { NoteClassifier } from '../services/noteClassifier';
-import { dbOps } from '../database/operations';
-import { CATEGORY_EMOJI, CATEGORY_LABELS } from '../constants/noteCategories';
 import { config } from '../config/environment';
 import { StatusMessageManager } from '../utils/statusMessageManager';
 import { TagClassifier, AutoTagService, createServerClient } from '@telepocket/shared';
-
-// Initialize classifiers
-const noteClassifier = new NoteClassifier();
 
 // Initialize tag classifier and auto-tag service
 let tagClassifier: TagClassifier | null = null;
@@ -359,109 +353,8 @@ export async function handlePhotoMessage(ctx: Context): Promise<void> {
 }
 
 /**
- * Async function to classify note and add category buttons
+ * Async function to auto-tag note using the unified tag system
  * Runs in background after note is saved
- * Supports auto-confirm for high-confidence categories (score ≥95)
- */
-async function classifyNoteAsync(
-  ctx: Context,
-  noteId: string,
-  messageId: number,
-  noteContent: string,
-  urls: string[],
-  existingMessage: string
-): Promise<void> {
-  try {
-    // Skip if classification is disabled
-    if (!config.llm.classificationEnabled) {
-      return;
-    }
-
-    // Get category scores from LLM (0-100 scoring system)
-    const scores = await noteClassifier.suggestCategories(noteContent, urls);
-
-    // If no suggestions or all below threshold, skip
-    if (scores.length === 0) {
-      return;
-    }
-
-    // Separate auto-confirm and show-button categories
-    const autoConfirmCategories = scores.filter(s => s.action === 'auto-confirm');
-    const showButtonCategories = scores.filter(s => s.action === 'show-button');
-
-    // Auto-confirm high-confidence categories (score ≥95)
-    for (const score of autoConfirmCategories) {
-      // Convert 0-100 score to 0-1 confidence for database (legacy compatibility)
-      const confidence = score.score / 100;
-      await dbOps.addNoteCategory(noteId, score.category, confidence, false); // user_confirmed = false (LLM-confirmed)
-    }
-
-    // Add show-button categories to database as unconfirmed
-    for (const score of showButtonCategories) {
-      const confidence = score.score / 100;
-      await dbOps.addNoteCategory(noteId, score.category, confidence, false);
-    }
-
-    // Build message with auto-confirmed categories and buttons
-    let updatedMessage = existingMessage;
-
-    // If there are auto-confirmed categories, add them to the message
-    if (autoConfirmCategories.length > 0) {
-      const categoryTags = autoConfirmCategories
-        .map(s => `${CATEGORY_EMOJI[s.category]} ${CATEGORY_LABELS[s.category]}`)
-        .join(' ');
-      updatedMessage += `\n\n🏷️ *Auto\\-tagged:* ${escapeMarkdownV2(categoryTags)}`;
-    }
-
-    // If there are show-button categories, build inline keyboard
-    if (showButtonCategories.length > 0) {
-      const keyboard = new InlineKeyboard();
-
-      // Add buttons (max 2 per row)
-      showButtonCategories.forEach((score, index) => {
-        const emoji = CATEGORY_EMOJI[score.category];
-        const label = CATEGORY_LABELS[score.category];
-        const callbackData = `category:${noteId}:${score.category}:${score.score}`;
-
-        keyboard.text(`${emoji} ${label}`, callbackData);
-
-        // Add row break after every 2 buttons
-        if ((index + 1) % 2 === 0 && index < showButtonCategories.length - 1) {
-          keyboard.row();
-        }
-      });
-
-      // Edit message with updated text and category buttons
-      await ctx.api.editMessageText(
-        ctx.chat!.id,
-        messageId,
-        updatedMessage,
-        {
-          parse_mode: 'MarkdownV2',
-          reply_markup: keyboard
-        }
-      );
-    } else if (autoConfirmCategories.length > 0) {
-      // Only auto-confirmed categories, no buttons - just update message text
-      await ctx.api.editMessageText(
-        ctx.chat!.id,
-        messageId,
-        updatedMessage,
-        {
-          parse_mode: 'MarkdownV2'
-        }
-      );
-    }
-  } catch (error) {
-    console.error('Error in async classification:', error);
-    // Fail silently - user still has their note saved
-  }
-}
-
-/**
- * Async function to auto-tag note using the new unified tag system
- * Runs in background after note is saved
- * Replaces the old category classification system
  */
 async function autoTagNoteAsync(
   ctx: Context,

@@ -1,43 +1,7 @@
 'use server';
 
-import { createServerClient as createClient, NoteCategory } from '@telepocket/shared';
+import { createServerClient as createClient } from '@telepocket/shared';
 import { revalidatePath } from 'next/cache';
-
-/**
- * Confirm a category for a note (sets user_confirmed = true)
- */
-export async function confirmNoteCategory(
-  noteId: string,
-  category: NoteCategory,
-  userId: number
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = createClient();
-
-    // Update the category to mark it as user-confirmed
-    const { error } = await supabase
-      .from('z_note_categories')
-      .update({ user_confirmed: true })
-      .eq('note_id', noteId)
-      .eq('category', category);
-
-    if (error) {
-      console.error('Failed to confirm note category:', error);
-      return { success: false, error: error.message };
-    }
-
-    // Revalidate the note detail page
-    revalidatePath(`/notes/${noteId}`);
-
-    return { success: true };
-  } catch (error) {
-    console.error('Unexpected error confirming note category:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
 
 /**
  * Archive a note (sets status = 'archived')
@@ -218,7 +182,7 @@ export async function searchNotesHybrid(
   query: string,
   page: number = 1,
   pageSize: number = 20,
-  category: NoteCategory | null = null
+  category: string | null = null
 ): Promise<{ results: HybridSearchResult[]; totalCount: number; error?: string }> {
   try {
     const service = getEmbeddingService();

@@ -71,66 +71,6 @@ export function initCallbackHandlerViews(views: {
 }
 
 /**
- * Handle category button click from note detail view
- */
-async function handleCategoryButtonClick(ctx: any, data: string): Promise<void> {
-  try {
-    // Parse callback data: category:noteId:categoryCode:returnPath
-    const parts = data.split(':');
-    if (parts.length < 3) {
-      await ctx.answerCallbackQuery('❌ Invalid category data');
-      return;
-    }
-
-    // Extract noteId and category code (always at positions 1 and 2)
-    const noteId = parts[1];
-    const categoryCode = parts[2];
-    // returnPath at position 3 (base64url encoded)
-    const encodedPath = parts[3];
-    const returnPath = encodedPath
-      ? Buffer.from(encodedPath, 'base64url').toString('utf-8')
-      : '/notes/1';
-
-    // Map short codes back to full category names
-    const categoryMap: Record<string, string> = {
-      'to': 'todo',
-      'id': 'idea',
-      'bl': 'blog',
-      'yo': 'youtube',
-      're': 'reference',
-      'ja': 'japanese'
-    };
-    const category = categoryMap[categoryCode] || categoryCode;
-
-    // Confirm the category in the database
-    const success = await dbOps.confirmNoteCategory(noteId, category as any);
-
-    if (!success) {
-      await ctx.answerCallbackQuery('❌ Failed to save category');
-      return;
-    }
-
-    // Import category constants dynamically to avoid circular deps
-    const { CATEGORY_EMOJI, CATEGORY_LABELS } = await import('../../constants/noteCategories');
-    const emoji = CATEGORY_EMOJI[category as keyof typeof CATEGORY_EMOJI];
-    const label = CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS];
-
-    // Answer with success message
-    await ctx.answerCallbackQuery(`✅ Tagged as ${emoji} ${label}`);
-
-    // Refresh the view to remove the confirmed category button
-    const messageText = ctx.callbackQuery?.message?.text || '';
-    if (messageText.includes('📝 Note Details')) {
-      // Refresh detail view with proper return path
-      await showNoteDetail(ctx, ctx.from!.id, noteId, returnPath);
-    }
-  } catch (error) {
-    console.error('Error handling category button click:', error);
-    await ctx.answerCallbackQuery('❌ An error occurred');
-  }
-}
-
-/**
  * Callback query handler - routes all button clicks to appropriate handlers
  */
 callbackHandler.on('callback_query', async (ctx) => {
@@ -230,9 +170,6 @@ callbackHandler.on('callback_query', async (ctx) => {
 
       await ctx.answerCallbackQuery();
       await showLinksOnlySearchResults(ctx, userId, keyword, requestedPage);
-
-    } else if (data?.startsWith('category:')) {
-      await handleCategoryButtonClick(ctx, data);
 
     } else if (data?.startsWith('category_page_')) {
       const parts = data.replace('category_page_', '').split('_');

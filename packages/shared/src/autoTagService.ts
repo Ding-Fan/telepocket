@@ -100,6 +100,7 @@ export class AutoTagService {
       .select('*')
       .eq('created_by', userId)
       .eq('is_archived', false)
+      .eq('is_ai_enabled', true)
       .not('score_prompt', 'is', null)
       .order('usage_count', { ascending: false });
 
