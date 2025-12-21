@@ -91,6 +91,7 @@ export interface HybridSearchResult {
     id: string;
     content: string;
     category: NoteCategory | null;
+    tags: string[];  // All confirmed tags for this note
     relevance_score: number;
     search_type: 'semantic' | 'fuzzy' | 'semantic+fuzzy';
     links: { id: string; url: string; title?: string }[];
@@ -101,6 +102,7 @@ export interface HybridSearchResult {
 export interface GlanceNote {
     note_id: string;
     category: NoteCategory;
+    tags: string[];  // All confirmed tags for this note
     content: string;
     updated_at: string;
     created_at: string;
@@ -118,6 +120,7 @@ export interface GlanceNote {
 export interface PriorityNote {
     note_id: string;
     category: NoteCategory;
+    tags: string[];  // All confirmed tags for this note
     content: string;
     updated_at: string;
     created_at: string;

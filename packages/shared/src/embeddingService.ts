@@ -1,8 +1,19 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface NoteData {
     content: string;
-    links?: { title?: string; url: string }[];
+    links?: { title?: string; description?: string; url: string }[];
+}
+
+export interface NoteWithId extends NoteData {
+    id: number;
+}
+
+export interface BatchEmbeddingResult {
+    id: number;
+    embedding?: number[];
+    error?: string;
 }
 
 export class EmbeddingService {
@@ -60,15 +71,81 @@ export class EmbeddingService {
         if (note.links && note.links.length > 0) {
             const linkTexts = note.links
                 .map(link => {
-                    if (link.title) return `${link.title} (${link.url})`;
-                    return link.url;
+                    const parts = [];
+                    if (link.title) parts.push(link.title);
+                    if (link.description) parts.push(link.description);
+                    parts.push(link.url);
+                    return parts.join(' | ');
                 })
-                .join(', ');
+                .join('\n');
 
-            text += `\nLinks: ${linkTexts}`;
+            text += `\nLinks:\n${linkTexts}`;
         }
 
         return text;
+    }
+
+    /**
+     * Generates embeddings for multiple note objects with links.
+     * Returns results with success/error status for each note.
+     * Processes sequentially to respect rate limits.
+     */
+    async batchGenerateForNotes(notes: NoteWithId[]): Promise<BatchEmbeddingResult[]> {
+        const results: BatchEmbeddingResult[] = [];
+
+        for (const note of notes) {
+            try {
+                const text = this.prepareNoteText(note);
+                const embedding = await this.generateEmbedding(text);
+                results.push({ id: note.id, embedding });
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                results.push({ id: note.id, error: errorMessage });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Generates embeddings and updates them directly in the database.
+     * Returns statistics about successful updates and errors.
+     */
+    async batchUpdateNoteEmbeddings(
+        supabase: SupabaseClient,
+        notes: NoteWithId[]
+    ): Promise<{ successful: number; failed: number; results: BatchEmbeddingResult[] }> {
+        const results: BatchEmbeddingResult[] = [];
+        let successful = 0;
+        let failed = 0;
+
+        for (const note of notes) {
+            try {
+                // Generate embedding
+                const text = this.prepareNoteText(note);
+                const embedding = await this.generateEmbedding(text);
+
+                // Update database
+                const { error: updateError } = await supabase
+                    .from('z_notes')
+                    .update({ embedding })
+                    .eq('id', note.id);
+
+                if (updateError) {
+                    results.push({ id: note.id, error: updateError.message });
+                    failed++;
+                } else {
+                    results.push({ id: note.id, embedding });
+                    successful++;
+                }
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                results.push({ id: note.id, error: errorMessage });
+                failed++;
+            }
+        }
+
+        return { successful, failed, results };
     }
 
     /**

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { EmbeddingService } from '@telepocket/shared';
+import { EmbeddingService, NoteWithId } from '@telepocket/shared';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -22,28 +22,43 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
 const embeddingService = new EmbeddingService(GOOGLE_AI_API_KEY);
 
 async function backfillEmbeddings() {
-    console.log('Starting embedding backfill...');
+    console.log('Starting embedding backfill...\n');
+
+    // First, get total count of notes without embeddings
+    const { count: totalCount, error: countError } = await supabase
+        .from('z_notes')
+        .select('id', { count: 'exact', head: true })
+        .is('embedding', null);
+
+    if (countError) {
+        console.error('Error counting notes:', countError);
+        process.exit(1);
+    }
+
+    console.log(`Found ${totalCount} notes to process\n`);
 
     let offset = 0;
-    const batchSize = 50;
-    let totalProcessed = 0;
-    let totalErrors = 0;
+    const batchSize = 20;
+    let totalSuccessful = 0;
+    let totalFailed = 0;
 
-    while (true) {
-        // Fetch notes without embeddings
+    while (offset < (totalCount || 0)) {
+        // Fetch batch of notes without embeddings
         const { data: notes, error } = await supabase
             .from('z_notes')
             .select(`
-        id,
-        content,
-        z_note_links (
-          id,
-          url,
-          title
-        )
-      `)
+                id,
+                content,
+                z_note_links (
+                    id,
+                    url,
+                    title,
+                    description
+                )
+            `)
             .is('embedding', null)
-            .range(offset, offset + batchSize - 1);
+            .range(offset, offset + batchSize - 1)
+            .order('created_at', { ascending: true });
 
         if (error) {
             console.error('Error fetching notes:', error);
@@ -55,54 +70,58 @@ async function backfillEmbeddings() {
             break;
         }
 
-        console.log(`Processing batch of ${notes.length} notes...`);
+        console.log(`\n📦 Processing batch ${Math.floor(offset / batchSize) + 1} (${notes.length} notes)...`);
 
-        for (const note of notes) {
-            try {
-                const links = note.z_note_links || [];
-                const text = embeddingService.prepareNoteText({
-                    content: note.content,
-                    links: links.map((l: any) => ({ title: l.title, url: l.url }))
-                });
+        // Transform to NoteWithId format
+        const notesWithLinks: NoteWithId[] = notes.map((note: any) => ({
+            id: note.id,
+            content: note.content,
+            links: (note.z_note_links || []).map((l: any) => ({
+                url: l.url,
+                title: l.title,
+                description: l.description
+            }))
+        }));
 
-                const embedding = await embeddingService.generateEmbedding(text);
+        // Use batch update method
+        const { successful, failed, results } = await embeddingService.batchUpdateNoteEmbeddings(
+            supabase,
+            notesWithLinks
+        );
 
-                const { error: updateError } = await supabase
-                    .from('z_notes')
-                    .update({ embedding })
-                    .eq('id', note.id);
+        totalSuccessful += successful;
+        totalFailed += failed;
 
-                if (updateError) {
-                    console.error(`Failed to update note ${note.id}:`, updateError);
-                    totalErrors++;
-                } else {
-                    totalProcessed++;
-                }
-
-                // Rate limiting is handled inside EmbeddingService, but we add a small safety buffer
-                // await new Promise(resolve => setTimeout(resolve, 10)); 
-            } catch (err) {
-                console.error(`Failed to process note ${note.id}:`, err);
-                totalErrors++;
+        // Log individual results
+        for (const result of results) {
+            if (result.error) {
+                console.log(`  ❌ Note ${result.id}: ${result.error}`);
+            } else {
+                console.log(`  ✅ Note ${result.id}: Embedded successfully`);
             }
         }
 
-        // Since we're filtering by embedding IS NULL, we don't need to increment offset
-        // The processed notes will no longer match the filter
-        // However, if we have errors, we might get stuck in a loop if we don't skip them
-        // So for safety, if we had errors, we might want to increment offset or handle differently
-        // But for now, assuming transient errors, we'll just continue. 
-        // Actually, if we fail to update, it will still be null, so we will fetch it again.
-        // To avoid infinite loops on persistent errors, we should probably track failed IDs or just increment offset if we made no progress.
+        offset += batchSize;
 
-        // Simple approach: if we processed 0 notes successfully in a batch but had notes, we might be stuck.
-        // But let's just rely on the fact that we'll eventually finish.
+        // Progress summary after each batch
+        const totalProcessed = totalSuccessful + totalFailed;
+        console.log(`\n📊 Progress: ${totalProcessed}/${totalCount} | ✅ ${totalSuccessful} successful | ❌ ${totalFailed} errors`);
 
-        // Wait a bit between batches
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait 1 second between batches
+        if (offset < (totalCount || 0)) {
+            console.log('⏳ Waiting 1 second before next batch...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
 
-    console.log(`Backfill complete. Processed: ${totalProcessed}, Errors: ${totalErrors}`);
+    console.log('\n' + '='.repeat(80));
+    console.log('✨ Backfill complete!');
+    console.log('='.repeat(80));
+    console.log(`Total processed: ${totalSuccessful + totalFailed}`);
+    console.log(`Successful updates: ${totalSuccessful}`);
+    console.log(`Errors: ${totalFailed}`);
+    console.log(`Success rate: ${(totalSuccessful + totalFailed) > 0 ? ((totalSuccessful / (totalSuccessful + totalFailed)) * 100).toFixed(1) : 0}%`);
+    console.log('='.repeat(80));
 }
 
 backfillEmbeddings().catch(console.error);
