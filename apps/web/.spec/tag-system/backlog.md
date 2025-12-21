@@ -68,6 +68,13 @@ New features or enhancements to consider.
 **Description**: Full-text search that includes tag names and descriptions. Search "work" finds notes tagged with work-related tags.
 **Use Case**: Users want to search by tag semantics, not just tag names. Enhances discoverability.
 
+### AI Tag Auto-Generation & Recommendations
+**Priority**: Medium
+**Effort**: 12h
+**Description**: AI automatically detects patterns in notes and suggests/generates relevant tags. For example, if multiple notes contain YouTube links, AI recommends creating a "Youtube" tag or auto-generates it. Can analyze content patterns (links, keywords, topics) to suggest useful tags that don't exist yet.
+**Use Case**: Users have notes with common patterns (YouTube videos, GitHub repos, recipes, etc.) but haven't created corresponding tags. AI proactively suggests "we have content like this that could benefit from a tag" to improve organization without manual effort.
+**Technical Detail**: Could use embeddings clustering to find content patterns, or rule-based detection for specific patterns (URL domains, file types, keywords). Suggestions shown in tag management UI or as notifications.
+
 ---
 
 ## 🔧 Technical Improvements
