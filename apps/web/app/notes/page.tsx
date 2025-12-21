@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTelegram } from '@/hooks/useTelegram';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -15,10 +15,95 @@ export default function NotesPage() {
   const { user } = useTelegram();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Get category from URL
+  // Get search query and category from URL
+  const queryParam = searchParams.get('q') || '';
   const categoryParam = searchParams.get('category') as NoteCategory | null;
+
+  // Local state synced with URL
+  const [searchQuery, setSearchQuery] = useState(queryParam);
+
+  // Sync local state with URL params when they change
+  useEffect(() => {
+    setSearchQuery(queryParam);
+  }, [queryParam]);
+
+  // === SCROLL RESTORATION USING HISTORY API ===
+  // Save scroll position to browser history state (survives navigation)
+  useEffect(() => {
+    let scrollTimer: NodeJS.Timeout;
+
+    const handleScroll = () => {
+      // Debounce scroll saves to avoid excessive history writes
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        const currentState = window.history.state || {};
+        window.history.replaceState(
+          { ...currentState, scrollPos: window.scrollY },
+          ''
+        );
+      }, 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      clearTimeout(scrollTimer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // Save scroll position immediately when clicking a note card
+  useEffect(() => {
+    const handleNoteCardClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const noteCard = target.closest('[role="article"]');
+      if (noteCard) {
+        // Save immediately to history state (bypass debounce)
+        const currentState = window.history.state || {};
+        window.history.replaceState(
+          { ...currentState, scrollPos: window.scrollY },
+          ''
+        );
+      }
+    };
+
+    document.addEventListener('click', handleNoteCardClick, true);
+    return () => document.removeEventListener('click', handleNoteCardClick, true);
+  }, []);
+
+  // Restore scroll position on popstate (back/forward navigation)
+  useEffect(() => {
+    const handlePopState = () => {
+      const scrollPos = window.history.state?.scrollPos;
+      if (scrollPos !== undefined) {
+        // Use double requestAnimationFrame to run AFTER Next.js scroll restoration
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, scrollPos);
+          });
+        });
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Also restore on mount (for initial page load with history state)
+  useLayoutEffect(() => {
+    const scrollPos = window.history.state?.scrollPos;
+    if (scrollPos !== undefined) {
+      // Multiple attempts with increasing delays to ensure we override Next.js
+      const attempts = [0, 100, 300];
+      attempts.forEach((delay) => {
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, scrollPos);
+          });
+        }, delay);
+      });
+    }
+  }, []);
 
   // Use search hook when query exists, otherwise use regular list
   const searchResults = useNotesSearch({
@@ -36,17 +121,54 @@ export default function NotesPage() {
   // Determine which data to display
   const isSearching = searchQuery.trim().length >= 2;
 
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+
+    // Update URL with search query
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (value.trim().length >= 2) {
+      params.set('q', value);
+    } else {
+      params.delete('q');
+    }
+
+    // Preserve category filter
+    if (categoryParam) {
+      params.set('category', categoryParam);
+    }
+
+    const newUrl = params.toString() ? `/notes?${params.toString()}` : '/notes';
+    router.replace(newUrl, { scroll: false });
+  };
+
   const handleClearSearch = () => {
     setSearchQuery('');
+
+    // Remove search query from URL, preserve category
+    const params = new URLSearchParams();
+    if (categoryParam) {
+      params.set('category', categoryParam);
+    }
+
+    const newUrl = params.toString() ? `/notes?${params.toString()}` : '/notes';
+    router.replace(newUrl, { scroll: false });
   };
 
   const handleClearCategory = () => {
-    router.push('/notes');
+    // Remove category, preserve search query
+    const params = new URLSearchParams();
+    if (searchQuery.trim().length >= 2) {
+      params.set('q', searchQuery);
+    }
+
+    const newUrl = params.toString() ? `/notes?${params.toString()}` : '/notes';
+    router.replace(newUrl, { scroll: false });
   };
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-ocean-950 py-6 px-4">
+      <div className="min-h-screen bg-ocean-950 py-6 px-2 md:px-4">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-6">
@@ -65,7 +187,7 @@ export default function NotesPage() {
               {/* Search Bar */}
               <NotesSearchBar
                 value={searchQuery}
-                onChange={setSearchQuery}
+                onChange={handleSearchChange}
                 onClear={handleClearSearch}
               />
 
@@ -126,19 +248,23 @@ function SearchResults({
   // Loading state - First load
   if (loading && results.length === 0) {
     return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
+        {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="bg-glass rounded-2xl border border-ocean-700/30 p-4 animate-pulse"
+            className="bg-glass rounded-2xl border border-ocean-700/30 p-3 animate-pulse aspect-[2/3] flex flex-col"
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="h-6 w-24 bg-ocean-700/30 rounded-full"></div>
-              <div className="h-4 w-20 bg-ocean-700/30 rounded"></div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="h-5 w-16 bg-ocean-700/30 rounded-full"></div>
+              <div className="h-3 w-14 bg-ocean-700/30 rounded"></div>
             </div>
-            <div className="space-y-2 mb-4">
-              <div className="h-4 bg-ocean-700/30 rounded w-full"></div>
-              <div className="h-4 bg-ocean-700/30 rounded w-5/6"></div>
+            <div className="space-y-1.5 mb-3 flex-grow">
+              <div className="h-3 bg-ocean-700/30 rounded w-full"></div>
+              <div className="h-3 bg-ocean-700/30 rounded w-5/6"></div>
+              <div className="h-3 bg-ocean-700/30 rounded w-4/6"></div>
+            </div>
+            <div className="pt-2 border-t border-ocean-700/20 mt-auto">
+              <div className="h-2.5 bg-ocean-700/30 rounded w-20"></div>
             </div>
           </div>
         ))}
@@ -185,21 +311,31 @@ function SearchResults({
       )}
 
       {/* Results Grid */}
-      <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
         {results.map((note: any, index: number) => (
           <div
-            key={note.note_id}
+            key={note.id}
             style={{
               animationDelay: `${index * 50}ms`
             }}
           >
             <NoteCard
-              noteId={note.note_id}
+              noteId={note.id}
               category={note.category}
-              content={note.note_content}
+              content={note.content}
               createdAt={note.created_at}
               linkCount={note.links?.length || 0}
               imageCount={0}
+              tags={note.tags}
+              linkPreviews={note.links?.map((link: any) => ({
+                link_id: link.id,
+                note_id: note.id,
+                url: link.url,
+                title: link.title || null,
+                description: null,
+                image_url: null,
+                created_at: note.created_at
+              }))}
             />
           </div>
         ))}

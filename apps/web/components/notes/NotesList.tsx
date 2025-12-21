@@ -22,23 +22,23 @@ export function NotesList({ userId, category = null }: NotesListProps) {
   // Loading state - First load
   if (loading && notes.length === 0) {
     return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
+        {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="bg-glass rounded-2xl border border-ocean-700/30 p-4 animate-pulse"
+            className="bg-glass rounded-2xl border border-ocean-700/30 p-3 animate-pulse aspect-[2/3] flex flex-col"
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="h-6 w-24 bg-ocean-700/30 rounded-full"></div>
-              <div className="h-4 w-20 bg-ocean-700/30 rounded"></div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="h-5 w-16 bg-ocean-700/30 rounded-full"></div>
+              <div className="h-3 w-14 bg-ocean-700/30 rounded"></div>
             </div>
-            <div className="space-y-2 mb-4">
-              <div className="h-4 bg-ocean-700/30 rounded w-full"></div>
-              <div className="h-4 bg-ocean-700/30 rounded w-5/6"></div>
-              <div className="h-4 bg-ocean-700/30 rounded w-4/6"></div>
+            <div className="space-y-1.5 mb-3 flex-grow">
+              <div className="h-3 bg-ocean-700/30 rounded w-full"></div>
+              <div className="h-3 bg-ocean-700/30 rounded w-5/6"></div>
+              <div className="h-3 bg-ocean-700/30 rounded w-4/6"></div>
             </div>
-            <div className="pt-3 border-t border-ocean-700/20">
-              <div className="h-3 bg-ocean-700/30 rounded w-32"></div>
+            <div className="pt-2 border-t border-ocean-700/20 mt-auto">
+              <div className="h-2.5 bg-ocean-700/30 rounded w-20"></div>
             </div>
           </div>
         ))}
@@ -89,7 +89,7 @@ export function NotesList({ userId, category = null }: NotesListProps) {
       )}
 
       {/* Notes Grid */}
-      <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
         {notes.map((note, index) => (
           <div
             key={note.note_id}
@@ -104,6 +104,8 @@ export function NotesList({ userId, category = null }: NotesListProps) {
               createdAt={note.created_at}
               linkCount={note.links?.length || 0}
               imageCount={0} // Will be added when we fetch image data
+              tags={note.tags}
+              linkPreviews={note.links}
             />
           </div>
         ))}
