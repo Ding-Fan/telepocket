@@ -38,6 +38,9 @@ importers:
       grammy:
         specifier: ^1.19.2
         version: 1.36.3
+      open-graph-scraper:
+        specifier: ^6.11.0
+        version: 6.11.0
     devDependencies:
       '@types/jest':
         specifier: ^29.5.14
@@ -139,6 +142,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.50.0
         version: 2.50.0
+      open-graph-scraper:
+        specifier: ^6.11.0
+        version: 6.11.0
     devDependencies:
       next:
         specifier: ^14.0.4
@@ -1665,12 +1671,19 @@ packages:
     resolution: {integrity: sha512-kWWXztvZ5SBQV+eRgKFeh8q5sLuZY2+8WUIzlxWVTg+oGwY14qylx1KbKzHd8P6ZYkAg0xyIDU9JMHhyJMZ1jw==}
     engines: {node: '>=10'}
 
+  chardet@2.1.1:
+    resolution: {integrity: sha512-PsezH1rqdV9VvyNhxxOW32/d75r01NY7TQCmOqomRo15ZSOKbpTFVsfjghxo6JloQUCGnH4k1LGu0R4yCLlWQQ==}
+
   cheerio-select@2.1.0:
     resolution: {integrity: sha512-9v9kG0LvzrlcungtnJtpGNxY+fzECQKhK4EGJX2vByejiMX84MFNQw4UxPJl3bFbTMw+Dfs37XaIkCwTZfLh4g==}
 
   cheerio@1.1.0:
     resolution: {integrity: sha512-+0hMx9eYhJvWbgpKV9hN7jg0JcwydpopZE4hgi+KvQtByZXPp04NiCWU0LzcAbP63abZckIHkTQaXVF52mX3xQ==}
     engines: {node: '>=18.17'}
+
+  cheerio@1.1.2:
+    resolution: {integrity: sha512-IkxPpb5rS/d1IiLbHMgfPuS0FgiWTtFIm/Nj+2woXDLTZ7fOT2eqzgYbdMlLweqlHbsZjxEChoVK+7iph7jyQg==}
+    engines: {node: '>=20.18.1'}
 
   ci-info@3.9.0:
     resolution: {integrity: sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ==}
@@ -2282,6 +2295,10 @@ packages:
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
+    engines: {node: '>=0.10.0'}
+
+  iconv-lite@0.7.0:
+    resolution: {integrity: sha512-cf6L2Ds3h57VVmkZe+Pn+5APsT7FpqJtEhhieDCvrE2MK5Qk9MyffgQyuxQTm6BChfeZNtcOLHp9IcWRVcIcBQ==}
     engines: {node: '>=0.10.0'}
 
   ignore@5.3.2:
@@ -2925,6 +2942,10 @@ packages:
     resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
     engines: {node: '>=6'}
 
+  open-graph-scraper@6.11.0:
+    resolution: {integrity: sha512-KkO3qMMzJj9KYGtCl19dRtncb+RuBiG/P9BgukcAG4p2w9wSAWTE90vL6/xqth1K9ThkYF/+xfTGrVvU79TJtQ==}
+    engines: {node: '>=20.0.0'}
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -3470,6 +3491,10 @@ packages:
 
   undici@7.10.0:
     resolution: {integrity: sha512-u5otvFBOBZvmdjWLVW+5DAc9Nkq8f24g0O9oY7qw2JVIF1VocIFoyz9JFkuVOS2j41AufeO0xnlweJ2RLT8nGw==}
+    engines: {node: '>=20.18.1'}
+
+  undici@7.16.0:
+    resolution: {integrity: sha512-QEg3HPMll0o3t2ourKwOeUAZ159Kn9mx5pnzHRQO8+Wixmh88YdZRiIwat0iNzNNXn0yoEtXJqFpyW7eM8BV7g==}
     engines: {node: '>=20.18.1'}
 
   unrs-resolver@1.11.1:
@@ -5658,6 +5683,8 @@ snapshots:
 
   char-regex@1.0.2: {}
 
+  chardet@2.1.1: {}
+
   cheerio-select@2.1.0:
     dependencies:
       boolbase: 1.0.0
@@ -5679,6 +5706,20 @@ snapshots:
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
       undici: 7.10.0
+      whatwg-mimetype: 4.0.0
+
+  cheerio@1.1.2:
+    dependencies:
+      cheerio-select: 2.1.0
+      dom-serializer: 2.0.0
+      domhandler: 5.0.3
+      domutils: 3.2.2
+      encoding-sniffer: 0.2.1
+      htmlparser2: 10.0.0
+      parse5: 7.3.0
+      parse5-htmlparser2-tree-adapter: 7.1.0
+      parse5-parser-stream: 7.1.2
+      undici: 7.16.0
       whatwg-mimetype: 4.0.0
 
   ci-info@3.9.0: {}
@@ -5995,7 +6036,7 @@ snapshots:
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@8.57.1)
@@ -6025,7 +6066,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -6040,7 +6081,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -6438,6 +6479,10 @@ snapshots:
   human-signals@2.1.0: {}
 
   iconv-lite@0.6.3:
+    dependencies:
+      safer-buffer: 2.1.2
+
+  iconv-lite@0.7.0:
     dependencies:
       safer-buffer: 2.1.2
 
@@ -7243,6 +7288,13 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
+  open-graph-scraper@6.11.0:
+    dependencies:
+      chardet: 2.1.1
+      cheerio: 1.1.2
+      iconv-lite: 0.7.0
+      undici: 7.16.0
+
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -7804,6 +7856,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici@7.10.0: {}
+
+  undici@7.16.0: {}
 
   unrs-resolver@1.11.1:
     dependencies:
