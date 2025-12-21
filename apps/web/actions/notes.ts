@@ -216,6 +216,7 @@ export async function searchNotesHybrid(
       id: item.id,
       content: item.content,
       category: item.category,
+      tags: item.tags || [],
       relevance_score: item.relevance_score,
       search_type: item.search_type,
       links: item.links || [],

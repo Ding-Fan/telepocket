@@ -6,6 +6,7 @@ interface Note {
   note_id: string;
   note_content: string;
   category: NoteCategory;
+  tags: string[];  // All confirmed tags
   telegram_message_id: number;
   created_at: string;
   links: any[];
