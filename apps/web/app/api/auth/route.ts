@@ -11,6 +11,16 @@ export async function POST(request: Request) {
 
         const urlParams = new URLSearchParams(initData);
         const hash = urlParams.get('hash');
+        const userData = JSON.parse(urlParams.get('user') || '{}');
+
+        // Skip HMAC validation in development mode
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔧 Development mode: Skipping HMAC validation');
+            console.log('👤 Mock user authenticated:', userData);
+            return NextResponse.json({ success: true, user: userData });
+        }
+
+        // Production: Validate HMAC signature
         urlParams.delete('hash');
 
         // Sort keys alphabetically
@@ -40,7 +50,6 @@ export async function POST(request: Request) {
             // Valid!
             // In a real app, you would issue a session token here (JWT, cookie, etc.)
             // For now, we just return success and the user data
-            const userData = JSON.parse(urlParams.get('user') || '{}');
             return NextResponse.json({ success: true, user: userData });
         } else {
             return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });

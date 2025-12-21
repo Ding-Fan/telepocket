@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 };
 
 import Script from "next/script";
+import { TelegramMockLoader } from "@/components/TelegramMockLoader";
 
 export default function RootLayout({
   children,
@@ -38,6 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${plusJakarta.variable} ${outfit.variable}`}>
+        <TelegramMockLoader />
         <DebugConsole />
         <QueryProvider>
           <ToastProvider>
