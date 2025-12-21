@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGlanceData } from '@/hooks/useGlanceData';
 import { usePinNoteMutation } from '@/hooks/usePinNoteMutation';
-import { GlanceCard } from './GlanceCard';
+import { NoteCard } from './NoteCard';
 import { ALL_CATEGORIES, CATEGORY_EMOJI, CATEGORY_LABELS, type NoteCategory, type GlanceNote } from '@telepocket/shared';
 
 interface GlanceSectionProps {
@@ -94,12 +94,20 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
           {/* Priority Notes Grid */}
           <div className="grid md:grid-cols-3 gap-4 mb-8">
             {priorityNotes.map((note) => (
-              <GlanceCard
+              <NoteCard
                 key={note.note_id}
-                note={note}
-                onClick={() => onNoteClick?.(note.note_id)}
+                noteId={note.note_id}
+                category={note.category}
+                content={note.content}
+                createdAt={note.updated_at}
+                linkCount={note.link_count}
+                imageCount={note.image_count}
+                tags={note.tags}
                 isMarked={note.is_marked}
-                onPinToggle={() => handlePinToggle(note.note_id)}
+                onPinToggle={handlePinToggle}
+                onClick={() => onNoteClick?.(note.note_id)}
+                previewLength={30}
+                showCategory={false}
               />
             ))}
           </div>
@@ -141,12 +149,20 @@ export function GlanceSection({ userId, onNoteClick }: GlanceSectionProps) {
               {categoryNotes.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-4">
                   {categoryNotes.map((note) => (
-                    <GlanceCard
+                    <NoteCard
                       key={note.note_id}
-                      note={note}
-                      onClick={() => onNoteClick?.(note.note_id)}
+                      noteId={note.note_id}
+                      category={note.category}
+                      content={note.content}
+                      createdAt={note.updated_at}
+                      linkCount={note.link_count}
+                      imageCount={note.image_count}
+                      tags={note.tags}
                       isMarked={note.is_marked || false}
-                      onPinToggle={() => handlePinToggle(note.note_id)}
+                      onPinToggle={handlePinToggle}
+                      onClick={() => onNoteClick?.(note.note_id)}
+                      previewLength={30}
+                      showCategory={false}
                     />
                   ))}
                 </div>

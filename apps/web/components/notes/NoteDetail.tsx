@@ -7,33 +7,47 @@ import { useRouter } from 'next/navigation';
 import { CopyNoteButton } from '@/components/ui/CopyNoteButton';
 import { useToast } from '@/components/ui/ToastProvider';
 import { useArchiveNoteMutation } from '@/hooks/useArchiveNoteMutation';
+import { LinkPreviewCard } from '@/components/ui/LinkPreviewCard';
 
 interface NoteDetailProps {
   note: NoteDetail;
   onBack?: () => void;
 }
 
-// Utility function to detect and linkify URLs in text
-function linkifyContent(text: string) {
+// Utility function to detect and linkify URLs in text with rich preview cards
+function linkifyContentWithPreviews(text: string, links: NoteDetail['links']) {
   // URL detection regex pattern
   const urlPattern = /(https?:\/\/[^\s]+)/g;
 
   const parts = text.split(urlPattern);
 
   return parts.map((part, index) => {
-    // If this part matches a URL pattern, make it a link
+    // If this part matches a URL pattern
     if (part.match(urlPattern)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-300 transition-colors"
-        >
-          {part}
-        </a>
-      );
+      // Find matching link metadata from note.links
+      const linkData = links.find(link => link.url === part);
+
+      // If we have metadata (title or image), show rich preview card
+      if (linkData && (linkData.title || linkData.image_url)) {
+        return (
+          <div key={index} className="my-4">
+            <LinkPreviewCard link={linkData} variant="inline" />
+          </div>
+        );
+      } else {
+        // Fallback to plain link
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-300 transition-colors"
+          >
+            {part}
+          </a>
+        );
+      }
     }
     // Otherwise, return the text as-is
     return part;
@@ -208,7 +222,7 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
           <div className="p-8">
             <div className="prose prose-invert prose-ocean max-w-none">
               <div className="text-ocean-100 text-lg leading-relaxed whitespace-pre-wrap">
-                {linkifyContent(note.content)}
+                {linkifyContentWithPreviews(note.content, note.links)}
               </div>
             </div>
           </div>
@@ -244,60 +258,16 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
               <div className="border-t border-ocean-700/30 pt-6">
                 <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2 font-display">
                   <span className="text-cyan-400">🔗</span>
-                  Links
+                  All Links
                   <span className="text-ocean-400 text-sm font-normal">({note.links.length})</span>
                 </h3>
                 <div className="space-y-3">
                   {note.links.map((link) => (
-                    <a
+                    <LinkPreviewCard
                       key={link.link_id}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block bg-ocean-900/30 rounded-xl p-4 border border-ocean-700/30 hover:border-cyan-500/50 transition-all duration-300"
-                    >
-                      <div className="flex items-start gap-4">
-                        {/* Link Image Preview */}
-                        {link.image_url && (
-                          <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-ocean-800/50">
-                            <img
-                              src={link.image_url}
-                              alt={link.title || 'Link preview'}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-
-                        {/* Link Content */}
-                        <div className="flex-1 min-w-0">
-                          {link.title && (
-                            <h4 className="text-ocean-100 font-semibold mb-1 group-hover:text-cyan-300 transition-colors line-clamp-2">
-                              {link.title}
-                            </h4>
-                          )}
-                          {link.description && (
-                            <p className="text-ocean-400 text-sm mb-2 line-clamp-2">
-                              {link.description}
-                            </p>
-                          )}
-                          <p className="text-cyan-400 text-xs font-mono truncate">
-                            {link.url}
-                          </p>
-                        </div>
-
-                        {/* External Link Icon */}
-                        <div className="flex-shrink-0 text-ocean-500 group-hover:text-cyan-400 transition-colors">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            />
-                          </svg>
-                        </div>
-                      </div>
-                    </a>
+                      link={link}
+                      variant="detailed"
+                    />
                   ))}
                 </div>
               </div>
