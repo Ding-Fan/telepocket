@@ -1,5 +1,5 @@
 import { linkExtractor } from '../../src/services/linkExtractor';
-import { metadataFetcher } from '../../src/services/metadataFetcher';
+import { metadataFetcher } from '@telepocket/shared/dist/metadataFetcher';
 
 describe('Integration: LinkExtractor + MetadataFetcher', () => {
   // Real integration test without mocks for core functionality

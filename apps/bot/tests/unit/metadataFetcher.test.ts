@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { metadataFetcher, LinkMetadata } from '../../src/services/metadataFetcher';
+import { metadataFetcher, LinkMetadata } from '@telepocket/shared/dist/metadataFetcher';
 
 // Mock axios
 jest.mock('axios');

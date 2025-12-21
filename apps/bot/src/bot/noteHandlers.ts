@@ -1,7 +1,6 @@
 import { Bot, Context, InlineKeyboard } from 'grammy';
 import { telegramClient } from './bot';
 import { linkExtractor } from '../services/linkExtractor';
-import { metadataFetcher } from '../services/metadataFetcher';
 import { noteOps } from '../database/noteOperations';
 import { escapeMarkdownV2, formatLinksForDisplay } from '../utils/linkFormatter';
 import { validateNoteContent } from '../utils/validation';
@@ -10,6 +9,7 @@ import { imageUploader } from '../services/imageUploader';
 import { config } from '../config/environment';
 import { StatusMessageManager } from '../utils/statusMessageManager';
 import { TagClassifier, AutoTagService, createServerClient } from '@telepocket/shared';
+import { metadataFetcher } from '@telepocket/shared/dist/metadataFetcher';
 
 // Initialize tag classifier and auto-tag service
 let tagClassifier: TagClassifier | null = null;

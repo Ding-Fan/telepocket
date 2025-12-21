@@ -1,7 +1,7 @@
 import { Bot, Context } from 'grammy';
 import { telegramClient } from './client';
 import { linkExtractor } from '../services/linkExtractor';
-import { metadataFetcher } from '../services/metadataFetcher';
+import { metadataFetcher } from '@telepocket/shared/dist/metadataFetcher';
 import { dbOps } from '../database/operations';
 import { noteOps } from '../database/noteOperations';
 import { db } from '../database/connection';

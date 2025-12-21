@@ -1,13 +1,13 @@
 import { MessageHandler } from '../../src/bot/handlers';
 import { telegramClient } from '../../src/bot/client';
 import { linkExtractor } from '../../src/services/linkExtractor';
-import { metadataFetcher } from '../../src/services/metadataFetcher';
+import { metadataFetcher } from '@telepocket/shared/dist/metadataFetcher';
 import { dbOps } from '../../src/database/operations';
 
 // Mock all dependencies
 jest.mock('../../src/bot/client');
 jest.mock('../../src/services/linkExtractor');
-jest.mock('../../src/services/metadataFetcher');
+jest.mock('@telepocket/shared/dist/metadataFetcher');
 jest.mock('../../src/database/operations');
 
 const mockedTelegramClient = telegramClient as jest.Mocked<typeof telegramClient>;
