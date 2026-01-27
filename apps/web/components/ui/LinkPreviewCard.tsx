@@ -103,12 +103,14 @@ export function LinkPreviewCard({
   }
 
   // THUMBNAIL VARIANT - Compact preview for NoteCard
-  // Horizontal layout with small image + title/description
+  // Responsive: Larger on mobile for readability, compact on desktop
+  // Mobile (default): Stacked/Larger text
+  // Desktop (sm): Compact single line
   if (variant === 'thumbnail') {
     return (
-      <div className="group flex items-start gap-2 p-2 rounded-lg bg-ocean-900/30 border border-ocean-700/30 hover:border-cyan-500/50 transition-all duration-200 w-full">
+      <div className="group flex items-start gap-3 sm:gap-2 p-3 sm:p-2 rounded-lg bg-ocean-900/30 border border-ocean-700/30 hover:border-cyan-500/50 transition-all duration-200 w-full">
         {/* Image thumbnail */}
-        <div className="relative w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-ocean-800/50">
+        <div className="relative w-14 h-14 sm:w-10 sm:h-10 flex-shrink-0 rounded-md overflow-hidden bg-ocean-800/50">
           {link.image_url && !imageError ? (
             <Image
               src={link.image_url}
@@ -117,14 +119,14 @@ export function LinkPreviewCard({
               className={`object-cover transition-opacity duration-300 ${
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
-              sizes="40px"
+              sizes="(max-width: 640px) 56px, 40px"
               loading="lazy"
               onError={() => setImageError(true)}
               onLoad={() => setImageLoaded(true)}
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full">
-              <span className="text-ocean-500 text-sm">🔗</span>
+              <span className="text-base sm:text-sm">🔗</span>
             </div>
           )}
         </div>
@@ -132,25 +134,25 @@ export function LinkPreviewCard({
         {/* Title and description */}
         <div className="flex-1 min-w-0">
           {link.title && (
-            <h5 className="text-ocean-100 font-medium text-[10px] leading-tight line-clamp-1 mb-0.5">
+            <h5 className="text-ocean-100 font-medium text-sm sm:text-[11px] leading-tight line-clamp-2 sm:line-clamp-1 mb-0.5">
               {link.title}
             </h5>
           )}
           {link.description && (
-            <p className="text-ocean-400 text-[9px] leading-snug line-clamp-1">
+            <p className="text-ocean-400 text-xs sm:text-[10px] leading-snug line-clamp-2 sm:line-clamp-1">
               {link.description}
             </p>
           )}
           {!link.title && !link.description && (
-            <p className="text-ocean-400 text-[9px] leading-snug line-clamp-1">
+            <p className="text-ocean-400 text-xs sm:text-[10px] leading-snug line-clamp-1">
               {link.url}
             </p>
           )}
         </div>
 
         {/* External link icon - subtle */}
-        <div className="flex-shrink-0 text-ocean-500 group-hover:text-cyan-400 transition-colors">
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex-shrink-0 p-1 sm:p-0 text-ocean-500 group-hover:text-cyan-400 transition-colors">
+          <svg className="w-4 h-4 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
