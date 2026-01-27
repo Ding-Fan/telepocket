@@ -8,6 +8,8 @@ import { CopyNoteButton } from '@/components/ui/CopyNoteButton';
 import { useToast } from '@/components/ui/ToastProvider';
 import { useArchiveNoteMutation } from '@/hooks/useArchiveNoteMutation';
 import { LinkPreviewCard } from '@/components/ui/LinkPreviewCard';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface NoteDetailProps {
   note: NoteDetail;
@@ -221,8 +223,90 @@ export function NoteDetailComponent({ note, onBack }: NoteDetailProps) {
           {/* Content Section */}
           <div className="p-8">
             <div className="prose prose-invert prose-ocean max-w-none">
-              <div className="text-ocean-100 text-lg leading-relaxed whitespace-pre-wrap">
-                {linkifyContentWithPreviews(note.content, note.links)}
+              <div className="text-ocean-100 text-lg leading-relaxed">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    // Custom link component for clickable links
+                    a: ({ node, href, children, ...props }) => {
+                      // Internal note links (relative paths like /notes/xxx)
+                      if (href?.startsWith('/notes/')) {
+                        return (
+                          <a
+                            href={href}
+                            className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-300 transition-colors font-medium"
+                            {...props}
+                          >
+                            {children}
+                          </a>
+                        );
+                      }
+                      // External links (http/https)
+                      if (href?.match(/^https?:\/\//)) {
+                        return (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-300 transition-colors"
+                            {...props}
+                          >
+                            {children}
+                          </a>
+                        );
+                      }
+                      // Default link
+                      return <a href={href} {...props}>{children}</a>;
+                    },
+                    // Preserve line breaks
+                    p: ({ node, children, ...props }) => (
+                      <p className="mb-4 last:mb-0" {...props}>{children}</p>
+                    ),
+                    // Style headings
+                    h1: ({ node, children, ...props }) => (
+                      <h1 className="text-3xl font-bold mb-4 mt-6 text-white" {...props}>{children}</h1>
+                    ),
+                    h2: ({ node, children, ...props }) => (
+                      <h2 className="text-2xl font-bold mb-3 mt-5 text-white" {...props}>{children}</h2>
+                    ),
+                    h3: ({ node, children, ...props }) => (
+                      <h3 className="text-xl font-bold mb-2 mt-4 text-white" {...props}>{children}</h3>
+                    ),
+                    // Style lists
+                    ul: ({ node, children, ...props }) => (
+                      <ul className="list-disc list-inside mb-4 space-y-2" {...props}>{children}</ul>
+                    ),
+                    ol: ({ node, children, ...props }) => (
+                      <ol className="list-decimal list-inside mb-4 space-y-2" {...props}>{children}</ol>
+                    ),
+                    // Style list items
+                    li: ({ node, children, ...props }) => (
+                      <li className="text-ocean-100" {...props}>{children}</li>
+                    ),
+                    // Style code blocks
+                    code: ({ node, children, className, ...props }) => {
+                      // Check if it's inline code (no className means inline)
+                      const isInline = !className;
+                      return isInline ? (
+                        <code className="bg-ocean-800/50 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-sm" {...props}>
+                          {children}
+                        </code>
+                      ) : (
+                        <code className={`block bg-ocean-800/50 p-4 rounded-lg text-cyan-300 font-mono text-sm overflow-x-auto ${className}`} {...props}>
+                          {children}
+                        </code>
+                      );
+                    },
+                    // Style blockquotes
+                    blockquote: ({ node, children, ...props }) => (
+                      <blockquote className="border-l-4 border-cyan-500/50 pl-4 italic text-ocean-300 my-4" {...props}>
+                        {children}
+                      </blockquote>
+                    ),
+                  }}
+                >
+                  {note.content}
+                </ReactMarkdown>
               </div>
             </div>
           </div>
