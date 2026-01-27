@@ -1,0 +1,23 @@
+{
+  "name": "@telepocket/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Telepocket todo generation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@telepocket/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.50.0",
+    "@google/generative-ai": "^0.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  }
+}
