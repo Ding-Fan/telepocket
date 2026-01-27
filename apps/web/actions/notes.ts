@@ -236,3 +236,104 @@ export async function searchNotesHybrid(
     };
   }
 }
+
+/**
+ * Save search query to history
+ */
+export async function saveSearchHistory(
+  userId: number,
+  query: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Validation
+    if (!query || query.trim().length < 2) {
+      return { success: false, error: 'Query too short' };
+    }
+    if (query.length > 500) {
+      return { success: false, error: 'Query too long' };
+    }
+
+    const supabase = createClient();
+
+    const { error } = await supabase.rpc('save_search_query', {
+      user_id: userId,
+      search_query: query.trim()
+    });
+
+    if (error) {
+      console.error('Failed to save search history:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving search history:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Get search history for a user
+ */
+export async function getSearchHistory(
+  userId: number,
+  limit: number = 10
+): Promise<{ searches: string[]; error?: string }> {
+  try {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+      .from('z_search_history')
+      .select('query')
+      .eq('telegram_user_id', userId)
+      .order('searched_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Failed to fetch search history:', error);
+      return { searches: [], error: error.message };
+    }
+
+    return {
+      searches: data?.map(row => row.query) || []
+    };
+  } catch (error) {
+    console.error('Error fetching search history:', error);
+    return {
+      searches: [],
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Clear all search history for a user
+ */
+export async function clearSearchHistory(
+  userId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from('z_search_history')
+      .delete()
+      .eq('telegram_user_id', userId);
+
+    if (error) {
+      console.error('Failed to clear search history:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error clearing search history:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}

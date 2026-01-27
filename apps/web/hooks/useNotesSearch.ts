@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createBrowserClient as createClient } from '@telepocket/shared';
-import { searchNotesHybrid } from '@/actions/notes';
+import { searchNotesHybrid, saveSearchHistory } from '@/actions/notes';
 import { HybridSearchResult, NoteCategory } from '@telepocket/shared';
 
 interface UseNotesSearchOptions {
@@ -49,19 +49,7 @@ export function useNotesSearch({
     setResults([]);
   }, [debouncedQuery, category]);
 
-  // Perform search
-  useEffect(() => {
-    if (!debouncedQuery || debouncedQuery.trim().length < 2) {
-      setResults([]);
-      setTotalCount(0);
-      setLoading(false);
-      return;
-    }
-
-    searchNotes(1);
-  }, [userId, debouncedQuery, category]);
-
-  const searchNotes = async (page: number) => {
+  const searchNotes = useCallback(async (page: number) => {
     try {
       setLoading(true);
       setError(null);
@@ -106,15 +94,31 @@ export function useNotesSearch({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, debouncedQuery, pageSize, category]);
+
+  // Perform search
+  useEffect(() => {
+    if (!debouncedQuery || debouncedQuery.trim().length < 2) {
+      setResults([]);
+      setTotalCount(0);
+      setLoading(false);
+      return;
+    }
+
+    // Save to history after debounce (user stopped typing)
+    saveSearchHistory(userId, debouncedQuery.trim())
+      .catch(err => console.error('Failed to save search history:', err));
+
+    searchNotes(1);
+  }, [userId, debouncedQuery, category, pageSize, searchNotes]);
+
+  const hasMore = results.length < totalCount;
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore && debouncedQuery) {
       searchNotes(currentPage + 1);
     }
-  }, [loading, currentPage, debouncedQuery]);
-
-  const hasMore = results.length < totalCount;
+  }, [loading, hasMore, currentPage, debouncedQuery, searchNotes]);
 
   return {
     results,
