@@ -8,8 +8,9 @@ import { handleCommandError, handleValidationError } from '../utils/errorHandler
 import { imageUploader } from '../services/imageUploader';
 import { config } from '../config/environment';
 import { StatusMessageManager } from '../utils/statusMessageManager';
-import { TagClassifier, AutoTagService, createServerClient } from '@telepocket/shared';
+import { TagClassifier, AutoTagService } from '@telepocket/shared';
 import { metadataFetcher } from '@telepocket/shared/dist/metadataFetcher';
+import { db } from '../database/connection';
 
 // Initialize tag classifier and auto-tag service
 let tagClassifier: TagClassifier | null = null;
@@ -33,7 +34,7 @@ function getTagServices() {
       } : undefined
     });
 
-    const supabase = createServerClient();
+    const supabase = db.getClient();
     autoTagService = new AutoTagService(tagClassifier, supabase);
   }
 
