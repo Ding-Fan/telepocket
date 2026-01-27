@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { NoteCard } from './NoteCard';
+import { NoteCardV2 } from './NoteCardV2';
 import { useNotesList } from '@/hooks/useNotesList';
 import { NoteDetail, NoteCategory } from '@telepocket/shared';
 
@@ -89,7 +89,7 @@ export function NotesList({ userId, category = null }: NotesListProps) {
       )}
 
       {/* Notes Grid */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {notes.map((note, index) => (
           <div
             key={note.note_id}
@@ -97,15 +97,18 @@ export function NotesList({ userId, category = null }: NotesListProps) {
               animationDelay: `${index * 50}ms`
             }}
           >
-            <NoteCard
+            <NoteCardV2
               noteId={note.note_id}
-              category={note.category}
               content={note.note_content}
               createdAt={note.created_at}
-              linkCount={note.links?.length || 0}
-              imageCount={0} // Will be added when we fetch image data
               tags={note.tags}
-              linkPreviews={note.links}
+              links={note.links?.map((link: any) => ({
+                id: link.id,
+                url: link.url,
+                title: link.title,
+                description: link.description,
+                image_url: link.og_image
+              }))}
             />
           </div>
         ))}

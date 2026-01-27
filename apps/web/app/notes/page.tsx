@@ -8,13 +8,15 @@ import { NotesList } from '@/components/notes/NotesList';
 import { NotesSearchBar } from '@/components/notes/NotesSearchBar';
 import { useNotesSearch } from '@/hooks/useNotesSearch';
 import { useNotesList } from '@/hooks/useNotesList';
-import { NoteCard } from '@/components/notes/NoteCard';
+import { NoteCardV2 } from '@/components/notes/NoteCardV2';
 import { NoteCategory, CATEGORY_EMOJI, CATEGORY_LABELS } from '@telepocket/shared';
+import { generateTodosFromNotesAndSave } from '@/actions/generateTodos';
 
 export default function NotesPage() {
-  const { user } = useTelegram();
+  const { user, isReady } = useTelegram();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [authTimeout, setAuthTimeout] = useState(false);
 
   // Get search query and category from URL
   const queryParam = searchParams.get('q') || '';
@@ -23,10 +25,26 @@ export default function NotesPage() {
   // Local state synced with URL
   const [searchQuery, setSearchQuery] = useState(queryParam);
 
+  // Todo generation state
+  const [isGeneratingTodo, setIsGeneratingTodo] = useState(false);
+  const [todoGenerationError, setTodoGenerationError] = useState<string | null>(null);
+  const [lastGenerationTime, setLastGenerationTime] = useState<number>(0);
+
   // Sync local state with URL params when they change
   useEffect(() => {
     setSearchQuery(queryParam);
   }, [queryParam]);
+
+  // Set timeout for authentication (3 seconds)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!user) {
+        setAuthTimeout(true);
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [user]);
 
   // === SCROLL RESTORATION USING HISTORY API ===
   // Save scroll position to browser history state (survives navigation)
@@ -114,7 +132,7 @@ export default function NotesPage() {
 
   const regularNotes = useNotesList({
     userId: user?.id || 0,
-    pageSize: 20,
+    pageSize: 60,
     category: categoryParam
   });
 
@@ -166,6 +184,44 @@ export default function NotesPage() {
     router.replace(newUrl, { scroll: false });
   };
 
+  const handleTodoGeneration = async () => {
+    if (!user?.id) {
+      alert('Please log in to generate todos');
+      return;
+    }
+
+    // Rate limiting: 5 second cooldown
+    const now = Date.now();
+    if (now - lastGenerationTime < 5000) {
+      setTodoGenerationError('Please wait a moment before generating again');
+      return;
+    }
+    setLastGenerationTime(now);
+
+    setIsGeneratingTodo(true);
+    setTodoGenerationError(null);
+
+    try {
+      const result = await generateTodosFromNotesAndSave(user.id);
+
+      if (!result.success) {
+        setTodoGenerationError(result.error || 'Failed to generate todos');
+        return;
+      }
+
+      // Success! Redirect to the generated note
+      if (result.noteId) {
+        setSearchQuery('');
+        router.push(`/notes/${result.noteId}`);
+      }
+    } catch (error) {
+      console.error('Todo generation error:', error);
+      setTodoGenerationError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsGeneratingTodo(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="min-h-screen bg-ocean-950 py-6 px-2 md:px-4">
@@ -189,7 +245,23 @@ export default function NotesPage() {
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onClear={handleClearSearch}
+                userId={user.telegram_user_id}
               />
+
+              {/* Generate Todos Button */}
+              <div className="mb-4">
+                <button
+                  onClick={handleTodoGeneration}
+                  disabled={isGeneratingTodo || !user?.id}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-amber-500/10 border border-cyan-500/30 text-ocean-100 font-medium hover:from-cyan-500/20 hover:to-amber-500/20 hover:border-cyan-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="text-xl">🤖</span>
+                  <span>Generate Todos from Notes</span>
+                  {!isGeneratingTodo && regularNotes.notes.length > 0 && (
+                    <span className="text-ocean-400 text-sm">({regularNotes.notes.length} notes)</span>
+                  )}
+                </button>
+              </div>
 
               {/* Category Filter Chip */}
               {categoryParam && (
@@ -208,7 +280,38 @@ export default function NotesPage() {
               )}
 
               {/* Results */}
-              {isSearching ? (
+              {isGeneratingTodo ? (
+                // Loading state for todo generation
+                <div className="text-center py-12 bg-glass rounded-2xl border border-cyan-500/30">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-cyan-500/20 to-amber-500/20 flex items-center justify-center animate-pulse">
+                    <span className="text-4xl">🤖</span>
+                  </div>
+                  <p className="text-ocean-100 font-semibold mb-2 text-lg">
+                    Generating todos from your notes...
+                  </p>
+                  <p className="text-ocean-400 text-sm">
+                    AI is analyzing your recent notes • This may take a few seconds
+                  </p>
+                </div>
+              ) : todoGenerationError ? (
+                // Error state for todo generation
+                <div className="text-center py-12 bg-glass rounded-2xl border border-red-500/20">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-red-500/10 flex items-center justify-center">
+                    <span className="text-2xl">⚠️</span>
+                  </div>
+                  <p className="text-ocean-100 font-semibold mb-2">Todo generation failed</p>
+                  <p className="text-ocean-400 text-sm mb-4">{todoGenerationError}</p>
+                  <button
+                    onClick={() => {
+                      setTodoGenerationError(null);
+                      setSearchQuery('');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-glass border border-ocean-700/30 text-ocean-100 hover:border-cyan-500/50 transition-all duration-200"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ) : isSearching ? (
                 // Search Results
                 <SearchResults
                   results={searchResults.results}
@@ -224,9 +327,31 @@ export default function NotesPage() {
                 <NotesList userId={user.id} category={categoryParam} />
               )}
             </>
+          ) : authTimeout ? (
+            // Authentication timeout - show error with retry
+            <div className="text-center py-12 bg-glass rounded-2xl border border-red-500/20">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-red-500/10 flex items-center justify-center">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <p className="text-ocean-100 font-semibold mb-2">Authentication failed</p>
+              <p className="text-ocean-400 text-sm mb-4">
+                Please open this page from Telegram app
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-amber-500/20 border border-cyan-500/30 text-ocean-100 font-medium hover:from-cyan-500/30 hover:to-amber-500/30 transition-all duration-200"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
+            // Loading state
             <div className="text-center py-12">
-              <p className="text-ocean-400">Loading user information...</p>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-cyan-500/20 to-amber-500/20 flex items-center justify-center animate-pulse">
+                <span className="text-4xl">🔐</span>
+              </div>
+              <p className="text-ocean-100 font-semibold mb-2">Authenticating...</p>
+              <p className="text-ocean-400 text-sm">Verifying your Telegram identity</p>
             </div>
           )}
         </div>
@@ -311,7 +436,7 @@ function SearchResults({
       )}
 
       {/* Results Grid */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {results.map((note: any, index: number) => (
           <div
             key={note.id}
@@ -319,22 +444,17 @@ function SearchResults({
               animationDelay: `${index * 50}ms`
             }}
           >
-            <NoteCard
+            <NoteCardV2
               noteId={note.id}
-              category={note.category}
               content={note.content}
               createdAt={note.created_at}
-              linkCount={note.links?.length || 0}
-              imageCount={0}
               tags={note.tags}
-              linkPreviews={note.links?.map((link: any) => ({
-                link_id: link.id,
-                note_id: note.id,
+              links={note.links?.map((link: any) => ({
+                id: link.id,
                 url: link.url,
-                title: link.title || null,
+                title: link.title,
                 description: null,
-                image_url: null,
-                created_at: note.created_at
+                image_url: null
               }))}
             />
           </div>
