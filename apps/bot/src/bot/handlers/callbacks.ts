@@ -3,6 +3,8 @@ import { config } from '../../config/environment';
 import { validateSearchKeyword } from '../../utils/validation';
 import { dbOps } from '../../database/operations';
 import { handleClassifyAssignClick } from '../commands/classify';
+import { getBrushEventById, updateBrushEventStatus } from '../../database/brushOperations';
+import type { BrushEvent } from '../../types/brushReminder';
 
 export const callbackHandler = new Composer();
 
@@ -304,11 +306,53 @@ callbackHandler.on('callback_query', async (ctx) => {
       await ctx.answerCallbackQuery();
       await showUnifiedSearchResults(ctx, userId, sanitizedKeyword, requestedPage);
 
-    } else if (data?.startsWith('ca:') || data?.startsWith('classify_assign:')) {
-      // Handle classification assignment (delegate to classify command handler)
-      await handleClassifyAssignClick(ctx, data);
+     } else if (data?.startsWith('ca:') || data?.startsWith('classify_assign:')) {
+       // Handle classification assignment (delegate to classify command handler)
+       await handleClassifyAssignClick(ctx, data);
 
-    } else if (data === 'page_info' || data === 'search_info' || data === 'notes_page_info' ||
+     } else if (data?.startsWith('brush:done:')) {
+       await ctx.answerCallbackQuery();
+       const eventId = data.split(':')[2];
+
+       // Validate event exists
+       const event = await getBrushEventById(eventId);
+       if (!event) {
+         await ctx.answerCallbackQuery('Reminder not found');
+         return;
+       }
+       if (event.status !== 'pending' && event.status !== 'snoozed') {
+         await ctx.answerCallbackQuery('Already handled');
+         return;
+       }
+
+       // Handle done
+       const completedAt = new Date().toISOString();
+       await updateBrushEventStatus(eventId, 'completed', { completed_at: completedAt as any });
+       await ctx.editMessageText('✅ Great! You brushed your teeth.');
+       return;
+
+     } else if (data?.startsWith('brush:snooze:')) {
+       await ctx.answerCallbackQuery();
+       const eventId = data.split(':')[2];
+
+       // Validate event exists
+       const event = await getBrushEventById(eventId);
+       if (!event) {
+         await ctx.answerCallbackQuery('Reminder not found');
+         return;
+       }
+       if (event.status !== 'pending') {
+         await ctx.answerCallbackQuery('Already handled');
+         return;
+       }
+
+       // Handle snooze
+       const snoozeUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Snooze 10 minutes
+       await updateBrushEventStatus(eventId, 'snoozed', { snooze_until: snoozeUntil as any });
+       await ctx.editMessageText('⏰ Reminder snoozed for 10 minutes.');
+       return;
+
+     } else if (data === 'page_info' || data === 'search_info' || data === 'notes_page_info' ||
                data === 'notes_search_info' || data === 'links_only_page_info' ||
                data === 'links_only_search_info' || data === 'category_page_info' ||
                data === 'archived_page_info' || data === 'archived_search_info' ||
