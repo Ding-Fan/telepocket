@@ -37,6 +37,7 @@ Use it for:
 - saving plain notes
 - saving links with optional context
 - saving mixed note + link content
+- saving notes with image payloads
 
 Arguments:
 
@@ -45,6 +46,20 @@ Arguments:
   "content": "string, required",
   "idempotency_key": "string, required",
   "urls": ["string, optional"],
+  "images": [
+    {
+      "url": "string, optional",
+      "cloudflare_url": "string, optional",
+      "image_source_id": "string, optional but recommended",
+      "telegram_file_id": "string, optional",
+      "telegram_file_unique_id": "string, optional",
+      "file_name": "string, optional",
+      "file_size": 12345,
+      "mime_type": "image/jpeg",
+      "width": 1024,
+      "height": 768
+    }
+  ],
   "source": "string, optional, usually openclaw",
   "source_item_id": "string, optional",
   "created_at": "ISO timestamp, optional"
@@ -54,7 +69,10 @@ Arguments:
 Behavior:
 - Telepocket extracts links from `content`
 - explicit `urls` may also be provided
+- images may be provided as URL-based or Telegram-derived payloads
 - Telepocket stores the note and attached links
+- Telepocket stores attached image metadata in the note image table
+- prefer `image_source_id` for stable deduplication when image URLs are ephemeral
 - repeated calls with the same `idempotency_key` should deduplicate
 
 ### `notes.get`
@@ -175,6 +193,30 @@ Use this sequence:
 1. `notes.save`
 2. `notes.summarize` using the returned `note_id`
 
+### Save a note with images
+
+If the user wants to save screenshots, photos, or image references, still use `notes.save`.
+
+Example:
+
+```json
+{
+  "content": "Save these UI references for the dashboard redesign.",
+  "images": [
+    {
+      "url": "https://example.com/dashboard.png",
+      "image_source_id": "dashboard-reference-v1",
+      "file_name": "dashboard.png",
+      "mime_type": "image/png",
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "idempotency_key": "openclaw-images-dashboard-redesign-2026-03-08",
+  "source": "openclaw"
+}
+```
+
 ### Search then summarize
 
 If the user asks:
@@ -222,6 +264,7 @@ After using tools:
 - do not summarize arbitrary web pages as if they were saved notes
 - do not omit `idempotency_key` on writes
 - do not call `notes.summarize` without `note_ids` or `query`
+- do not send image payloads without at least one locator: `url`, `cloudflare_url`, or `telegram_file_id`
 
 ## Recommended Session Start
 

@@ -179,12 +179,14 @@ Returns the Telepocket user identity this MCP server acts for.
 
 ### notes.save
 
-Saves a note and stores any explicit or extracted links using an idempotent MCP-safe write path.
+Saves a note and stores any explicit or extracted links and images using an idempotent MCP-safe write path.
 
 **Parameters:**
 - `content` (string, required)
 - `idempotency_key` (string, required)
 - `urls` (string[], optional)
+- `images` (object[], optional)
+- `images[].image_source_id` (string, optional but recommended for stable retries)
 - `source` (string, optional, defaults to `openclaw`)
 - `source_item_id` (string, optional)
 - `created_at` (string, optional ISO timestamp)
@@ -194,7 +196,11 @@ Saves a note and stores any explicit or extracted links using an idempotent MCP-
 - `created`
 - `deduplicated`
 - `link_count`
+- `image_count`
 - stored link metadata
+- stored image metadata
+
+For external images, prefer sending a stable `image_source_id` if the image URL may change between retries.
 
 ### notes.get
 
@@ -316,3 +322,8 @@ Important design constraints:
 - Confirm `SUPABASE_SERVICE_ROLE_KEY` is valid
 - Check for malformed `created_at` timestamps
 - Make sure `idempotency_key` is always present
+
+**`notes.save` with images fails:**
+- Apply the migration that adds `save_note_payload_from_source(...)`
+- Include at least one image locator per image: `url`, `cloudflare_url`, or `telegram_file_id`
+- Provide `mime_type` and `file_name` when you have them for better fidelity
