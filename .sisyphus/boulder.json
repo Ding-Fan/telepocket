@@ -1,0 +1,21 @@
+{
+  "active_plan": "/Users/ding/Github/telepocket/.sisyphus/plans/brush-reminder.md",
+  "started_at": "2026-02-12T19:16:03.478Z",
+  "session_ids": ["ses_3acd3c592ffenpoSTi7cBw5tNt"],
+  "plan_name": "brush-reminder",
+  "completed_plans": [
+    {
+      "plan_name": "link-preview-mobile-fix",
+      "plan_path": "/Users/ding/Github/telepocket/.sisyphus/plans/link-preview-mobile-fix.md",
+      "started_at": "2026-01-27T20:10:33.848Z",
+      "completed_at": "2026-01-28T03:32:00.000Z",
+      "session_ids": [
+        "ses_3ff456150ffe2WujzoOt49Ea2C"
+      ],
+      "commits": [
+        "9d3de68"
+      ],
+      "outcome": "Deployed responsive mobile fix for link preview cards"
+    }
+  ]
+}
