@@ -9,6 +9,7 @@ import { archivedCommand, initArchivedCommandViews } from './commands/archived';
 import { linksCommand, initLinksCommandViews } from './commands/links';
 import { searchCommand, initSearchCommandViews } from './commands/search';
 import { suggestCommand, initSuggestCommandViews } from './commands/suggest';
+import { brushCommand } from './commands/brush';
 import { callbackHandler, initCallbackHandlerViews } from './handlers/callbacks';
 import { messageHandler } from './handlers/messages';
 import { showSuggestView, showSuggestViewWithQuery } from './views/suggest';
@@ -119,12 +120,7 @@ class ModularTelegramClient {
     return client;
   }
 
-  /**
-   * Install modular command composers and handlers with higher priority
-   * These will be processed before the legacy client's commands
-   */
   private setupModularCommands(): void {
-    // Install modular commands - these run first
     this.bot.use(startCommand);
     this.bot.use(helpCommand);
     this.bot.use(notesCommand);
@@ -133,8 +129,8 @@ class ModularTelegramClient {
     this.bot.use(searchCommand);
     this.bot.use(suggestCommand);
     this.bot.use(classifyCommand);
+    this.bot.use(brushCommand);
 
-    // Install modular handlers
     this.bot.use(callbackHandler);
     this.bot.use(messageHandler);
   }

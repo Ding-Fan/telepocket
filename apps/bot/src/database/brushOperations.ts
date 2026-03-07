@@ -231,7 +231,7 @@ export async function getBrushStreak(userId: number): Promise<BrushStreak> {
     const { data: result, error } = await db
       .getClient()
       .rpc('calculate_brush_streak', {
-        user_id: userId,
+        p_user_id: userId,
       });
 
     if (error) {

@@ -15,6 +15,7 @@ Your personal link and note manager for Telegram. I automatically save your mess
 const BASIC_COMMANDS = `**Basic Commands:**
 • /start - Show welcome message
 • /help - Show this help message
+• /brush - View brush teeth streak and history
 
 `;
 
