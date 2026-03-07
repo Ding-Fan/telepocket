@@ -7,10 +7,24 @@ import { metadataFetcher } from '../../shared/dist/metadataFetcher.js';
 export interface SaveNoteInput {
   content: string;
   urls?: string[];
+  images?: SaveImageInput[];
   source?: string;
   sourceItemId?: string;
   idempotencyKey: string;
   createdAt?: string;
+}
+
+export interface SaveImageInput {
+  imageSourceId?: string;
+  url?: string;
+  cloudflareUrl?: string;
+  telegramFileId?: string;
+  telegramFileUniqueId?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface SearchNotesInput {
@@ -73,6 +87,7 @@ export interface NoteRecord {
 interface SaveRpcResult {
   note_id: string | null;
   links_saved: number;
+  images_saved: number;
   success: boolean;
   deduplicated: boolean;
 }
@@ -165,6 +180,25 @@ export function parseOptionalStringArray(value: unknown, fieldName: string): str
   return items.length > 0 ? items : undefined;
 }
 
+export function parseOptionalObjectArray(value: unknown, fieldName: string): Record<string, unknown>[] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an array of objects`);
+  }
+
+  const items = value.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new Error(`${fieldName} must contain only objects`);
+    }
+    return item as Record<string, unknown>;
+  });
+
+  return items.length > 0 ? items : undefined;
+}
+
 export function extractUrls(text: string): string[] {
   const matches = text.match(/https?:\/\/[^\s)]+/g) || [];
   const deduped = new Set<string>();
@@ -184,6 +218,11 @@ export function buildSyntheticMessageId(seed: string): number {
   const hash = crypto.createHash('sha256').update(seed).digest();
   const value = hash.readUInt32BE(0);
   return Math.max(1, value);
+}
+
+export function buildSyntheticExternalId(seed: string, prefix: string): string {
+  const hash = crypto.createHash('sha256').update(seed).digest('hex');
+  return `${prefix}_${hash.slice(0, 32)}`;
 }
 
 export async function fetchLinksWithMetadata(urls: string[]): Promise<Array<Required<Pick<LinkRecord, 'url'>> & LinkRecord>> {
@@ -250,18 +289,21 @@ export async function saveNoteFromSource(config: Config, input: SaveNoteInput): 
   created: boolean;
   deduplicated: boolean;
   links: Array<Required<Pick<LinkRecord, 'url'>> & LinkRecord>;
+  images: ImageRecord[];
 }> {
   const client = createSupabaseClient(config);
   const urls = Array.from(new Set([...(input.urls || []), ...extractUrls(input.content)]));
   const links = await fetchLinksWithMetadata(urls);
   const seed = input.idempotencyKey || input.sourceItemId || input.content;
   const syntheticMessageId = buildSyntheticMessageId(seed);
+  const images = normalizeImages(input.images || [], input.idempotencyKey, input.source || 'openclaw');
 
-  const { data, error } = await client.rpc('save_note_with_links_from_source', {
+  const { data, error } = await client.rpc('save_note_payload_from_source', {
     telegram_user_id_param: getTelepocketUserId(config),
     telegram_message_id_param: syntheticMessageId,
     content_param: input.content,
     links_param: links,
+    images_param: images,
     source_param: input.source || 'openclaw',
     source_item_id_param: input.sourceItemId || null,
     idempotency_key_param: input.idempotencyKey,
@@ -281,8 +323,120 @@ export async function saveNoteFromSource(config: Config, input: SaveNoteInput): 
     noteId: row.note_id,
     created: !row.deduplicated,
     deduplicated: row.deduplicated,
-    links
+    links,
+    images
   };
+}
+
+export function parseImageInputs(value: unknown, fieldName: string): SaveImageInput[] | undefined {
+  const objects = parseOptionalObjectArray(value, fieldName);
+  if (!objects) {
+    return undefined;
+  }
+
+  return objects.map((image, index) => parseImageInput(image, `${fieldName}[${index}]`));
+}
+
+function parseImageInput(value: Record<string, unknown>, fieldName: string): SaveImageInput {
+  const url = parseOptionalString(value.url, `${fieldName}.url`);
+  const cloudflareUrl = parseOptionalString(value.cloudflare_url, `${fieldName}.cloudflare_url`) || parseOptionalString(value.cloudflareUrl, `${fieldName}.cloudflareUrl`);
+  const telegramFileId = parseOptionalString(value.telegram_file_id, `${fieldName}.telegram_file_id`) || parseOptionalString(value.telegramFileId, `${fieldName}.telegramFileId`);
+  const telegramFileUniqueId = parseOptionalString(value.telegram_file_unique_id, `${fieldName}.telegram_file_unique_id`) || parseOptionalString(value.telegramFileUniqueId, `${fieldName}.telegramFileUniqueId`);
+  const imageSourceId = parseOptionalString(value.image_source_id, `${fieldName}.image_source_id`) || parseOptionalString(value.imageSourceId, `${fieldName}.imageSourceId`);
+  const fileName = parseOptionalString(value.file_name, `${fieldName}.file_name`) || parseOptionalString(value.fileName, `${fieldName}.fileName`);
+  const mimeType = parseOptionalString(value.mime_type, `${fieldName}.mime_type`) || parseOptionalString(value.mimeType, `${fieldName}.mimeType`);
+  const fileSize = parseOptionalNumber(value.file_size, `${fieldName}.file_size`) ?? parseOptionalNumber(value.fileSize, `${fieldName}.fileSize`);
+  const width = parseOptionalNumber(value.width, `${fieldName}.width`);
+  const height = parseOptionalNumber(value.height, `${fieldName}.height`);
+
+  if (!url && !cloudflareUrl && !telegramFileId) {
+    throw new Error(`${fieldName} must include at least one of: url, cloudflare_url, telegram_file_id`);
+  }
+
+  return {
+    url,
+    cloudflareUrl,
+    imageSourceId,
+    telegramFileId,
+    telegramFileUniqueId,
+    fileName,
+    fileSize,
+    mimeType,
+    width,
+    height,
+  };
+}
+
+function parseOptionalNumber(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new Error(`${fieldName} must be a number`);
+  }
+
+  if (value < 0) {
+    throw new Error(`${fieldName} must be non-negative`);
+  }
+
+  return value;
+}
+
+function normalizeImages(images: SaveImageInput[], idempotencyKey: string, source: string): ImageRecord[] {
+  return images.map((image, index) => normalizeImage(image, idempotencyKey, source, index));
+}
+
+function normalizeImage(image: SaveImageInput, idempotencyKey: string, source: string, index: number): ImageRecord {
+  const url = image.cloudflareUrl || image.url;
+  const sourceId = image.imageSourceId || [url || '', image.telegramFileId || '', image.fileName || '', index].join(':');
+  const safeSource = source.replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+  const seed = [idempotencyKey, safeSource, sourceId].join(':');
+  const telegramFileUniqueId = image.telegramFileUniqueId || `src:${safeSource}:${buildSyntheticExternalId(seed, 'img')}`;
+  const telegramFileId = image.telegramFileId || `src:${safeSource}:${buildSyntheticExternalId(seed, 'file')}`;
+  const mimeType = image.mimeType || inferMimeType(url, image.fileName);
+  const fileName = image.fileName || inferFileName(url, index, mimeType);
+
+  return {
+    telegram_file_id: telegramFileId,
+    telegram_file_unique_id: telegramFileUniqueId,
+    cloudflare_url: url || `telepocket://image/${telegramFileId}`,
+    file_name: fileName,
+    file_size: image.fileSize || 0,
+    mime_type: mimeType,
+    width: image.width,
+    height: image.height,
+  };
+}
+
+function inferMimeType(url: string | undefined, fileName: string | undefined): string {
+  const candidate = (fileName || url || '').toLowerCase();
+  if (candidate.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (candidate.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (candidate.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  return 'image/jpeg';
+}
+
+function inferFileName(url: string | undefined, index: number, mimeType: string): string {
+  if (url) {
+    try {
+      const pathname = new URL(url).pathname;
+      const lastSegment = pathname.split('/').filter(Boolean).pop();
+      if (lastSegment) {
+        return lastSegment;
+      }
+    } catch {
+    }
+  }
+
+  const extension = mimeType.split('/')[1] || 'jpg';
+  return `image-${index + 1}.${extension}`;
 }
 
 export async function searchNotes(config: Config, input: SearchNotesInput): Promise<{

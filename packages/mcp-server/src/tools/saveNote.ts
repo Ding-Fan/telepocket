@@ -1,5 +1,6 @@
 import { RegisteredTool } from '../toolRegistry.js';
 import {
+  parseImageInputs,
   parseOptionalString,
   parseOptionalStringArray,
   saveNoteFromSource,
@@ -21,6 +22,25 @@ export const saveNoteTool: RegisteredTool = {
           type: 'array',
           items: { type: 'string' },
           description: 'Optional explicit URLs to save with the note.'
+        },
+        images: {
+          type: 'array',
+          description: 'Optional image payloads to save with the note.',
+          items: {
+            type: 'object',
+            properties: {
+              url: { type: 'string' },
+              cloudflare_url: { type: 'string' },
+              image_source_id: { type: 'string' },
+              telegram_file_id: { type: 'string' },
+              telegram_file_unique_id: { type: 'string' },
+              file_name: { type: 'string' },
+              file_size: { type: 'number' },
+              mime_type: { type: 'string' },
+              width: { type: 'number' },
+              height: { type: 'number' }
+            }
+          }
         },
         source: {
           type: 'string',
@@ -56,6 +76,7 @@ export const saveNoteTool: RegisteredTool = {
     const result = await saveNoteFromSource(context.config, {
       content: args.content.trim(),
       urls: parseOptionalStringArray(args.urls, 'urls'),
+      images: parseImageInputs(args.images, 'images'),
       source: parseOptionalString(args.source, 'source') || 'openclaw',
       sourceItemId: parseOptionalString(args.source_item_id, 'source_item_id'),
       idempotencyKey,
@@ -67,7 +88,9 @@ export const saveNoteTool: RegisteredTool = {
       created: result.created,
       deduplicated: result.deduplicated,
       link_count: result.links.length,
-      links: result.links
+      image_count: result.images.length,
+      links: result.links,
+      images: result.images
     });
   }
 };
