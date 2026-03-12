@@ -17,8 +17,8 @@ export const systemHealthTool: RegisteredTool = {
 
     return toJsonText({
       ok: !error,
-      version: '1.1.0',
-      tools: 'notes.save, notes.get, notes.search, notes.summarize, todos.generate',
+      version: '1.2.0',
+      tools: 'notes.save, notes.get, notes.search, notes.summarize, todos.generate, links.exposure.record, links.exposure.stats',
       supabase: error ? error.message : 'ok',
       ai: context.config.googleAI.model
     });

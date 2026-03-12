@@ -512,6 +512,7 @@ export async function searchNotes(config: Config, input: SearchNotesInput): Prom
       z_note_links(id, url, title)
     `, { count: 'exact' })
     .eq('telegram_user_id', userId)
+    .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(fetchSize);
 

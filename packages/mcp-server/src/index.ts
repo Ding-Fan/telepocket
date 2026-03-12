@@ -15,6 +15,8 @@ import { getNoteTool } from './tools/getNote.js';
 import { searchNotesTool } from './tools/searchNotes.js';
 import { summarizeNotesTool } from './tools/summarizeNotes.js';
 import { legacyTodosGenerateTool, todosGenerateTool } from './tools/todosGenerate.js';
+import { linksExposureRecordTool } from './tools/linksExposureRecord.js';
+import { linksExposureStatsTool } from './tools/linksExposureStats.js';
 
 /**
  * Telepocket MCP Server
@@ -50,6 +52,8 @@ async function main() {
       summarizeNotesTool,
       todosGenerateTool,
       legacyTodosGenerateTool,
+      linksExposureRecordTool,
+      linksExposureStatsTool,
     ]);
 
     // Handler for listing available tools
