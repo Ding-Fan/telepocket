@@ -5,7 +5,7 @@
 export interface Config {
   supabase: {
     url: string;
-    serviceRoleKey: string;
+    apiKey: string;
   };
   googleAI: {
     apiKey: string;
@@ -22,7 +22,6 @@ export interface Config {
 export function loadConfig(): Config {
   const requiredEnvVars = [
     'SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
     'GOOGLE_AI_API_KEY',
     'TELEGRAM_USER_ID'
   ];
@@ -34,6 +33,20 @@ export function loadConfig(): Config {
     }
   }
 
+  const apiKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!apiKey) {
+    const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
+    if (accessToken && accessToken.startsWith('sbp_')) {
+      throw new Error(
+        'SUPABASE_ACCESS_TOKEN is a Management API personal access token, not a database API key. Set SUPABASE_SECRET_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY.'
+      );
+    }
+
+    throw new Error(
+      'Missing required environment variable: SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY'
+    );
+  }
+
   const userId = Number(process.env.TELEGRAM_USER_ID);
   if (!Number.isInteger(userId) || userId <= 0) {
     throw new Error('TELEGRAM_USER_ID must be a positive integer');
@@ -42,7 +55,7 @@ export function loadConfig(): Config {
   return {
     supabase: {
       url: process.env.SUPABASE_URL!,
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!
+      apiKey
     },
     googleAI: {
       apiKey: process.env.GOOGLE_AI_API_KEY!,

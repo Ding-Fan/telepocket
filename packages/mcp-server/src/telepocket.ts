@@ -103,7 +103,7 @@ interface SearchRpcRow {
 }
 
 export function createSupabaseClient(config: Config): SupabaseClient {
-  return createClient(config.supabase.url, config.supabase.serviceRoleKey);
+  return createClient(config.supabase.url, config.supabase.apiKey);
 }
 
 export function getTelepocketUserId(config: Config): number {

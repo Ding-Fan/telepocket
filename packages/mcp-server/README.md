@@ -69,7 +69,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
       ],
       "env": {
         "SUPABASE_URL": "https://yyrazbunplmullccevot.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "<your_service_role_key>",
+        "SUPABASE_SECRET_KEY": "<your_supabase_secret_key>",
         "GOOGLE_AI_API_KEY": "<your_google_ai_api_key>",
         "GEMINI_MODEL": "gemini-2.5-flash",
         "TELEGRAM_USER_ID": "<your_telepocket_user_id>"
@@ -85,7 +85,7 @@ Point OpenClaw at the compiled MCP server using a stdio command entry. The exact
 
 - command: `node`
 - args: `[/Users/ding/Github/telepocket/packages/mcp-server/dist/index.js]`
-- env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_AI_API_KEY`, `GEMINI_MODEL`, `TELEGRAM_USER_ID`
+- env: `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (preferred) or `SUPABASE_SERVICE_ROLE_KEY` (legacy), `GOOGLE_AI_API_KEY`, `GEMINI_MODEL`, `TELEGRAM_USER_ID`
 
 Representative stdio MCP block:
 
@@ -98,7 +98,7 @@ Representative stdio MCP block:
   ],
   "env": {
     "SUPABASE_URL": "https://your-project.supabase.co",
-    "SUPABASE_SERVICE_ROLE_KEY": "<your_service_role_key>",
+    "SUPABASE_SECRET_KEY": "<your_supabase_secret_key>",
     "GOOGLE_AI_API_KEY": "<your_google_ai_api_key>",
     "GEMINI_MODEL": "gemini-2.5-flash",
     "TELEGRAM_USER_ID": "123456789"
@@ -112,7 +112,8 @@ Use your own OpenClaw config file format, but keep those values the same.
 
 Required:
 - `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (for privileged access)
+- `SUPABASE_SECRET_KEY` - Supabase secret key for privileged server-side access (preferred)
+- `SUPABASE_SERVICE_ROLE_KEY` - Legacy Supabase service role key (still supported)
 - `GOOGLE_AI_API_KEY` - Google AI API key for Gemini
 - `TELEGRAM_USER_ID` - Telepocket owner user ID used for note ownership
 

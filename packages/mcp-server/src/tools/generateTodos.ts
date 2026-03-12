@@ -22,10 +22,9 @@ export async function handleGenerateTodos(
   }
 
   try {
-    // Create Supabase client with service role key
     const supabase = createClient(
       config.supabase.url,
-      config.supabase.serviceRoleKey
+      config.supabase.apiKey
     );
 
     // Call shared todo generation service
