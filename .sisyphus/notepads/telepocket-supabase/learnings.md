@@ -1,0 +1,1 @@
+Supabase migrations: 48 files found under packages/shared/supabase/migrations; key patterns: idempotency keys (save_note_with_links_from_source), RLS policies (service_role/public), public access policies, impression tracking for exposures, fuzzy/hybrid search improvements, dual-write/backfill strategies.
